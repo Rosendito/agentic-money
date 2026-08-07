@@ -15,6 +15,7 @@
         "pest-testing",
         "inertia-react-development",
         "tailwindcss-development",
-        "committing-changes"
+        "committing-changes",
+        "laravel-migration-workflow"
     ]
 }
