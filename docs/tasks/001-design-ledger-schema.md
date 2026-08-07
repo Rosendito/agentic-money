@@ -1,7 +1,7 @@
 ---
 id: TASK-001
 title: Ledger core schema, models, and factories
-status: changes_requested
+status: review
 created_at: 2026-08-06
 ---
 
@@ -175,6 +175,83 @@ under `tests/Feature/Domain/...` proving the constraints below.
   - `php artisan test --compact` — 21 passed, 41 assertions, 0 failed.
   - `vendor/bin/pint --dirty --format agent` — passed, no changes needed.
 - **Commit:** `10ed11d` — feat(ledger): add core schema, models, and factories
+
+### Revision 2 (fresh executor, addressing `changes_requested`)
+
+- **Summary:** Fixed every P1/P2 finding from the first validation pass without changing any
+  accepted acceptance criterion.
+  - **Destructive cascades (P1):** `books.user_id`, `books.functional_instrument_id`,
+    `containers.book_id`, `accounts.book_id`, `accounts.native_instrument_id`, and
+    `journal_transactions.book_id` now use `restrictOnDelete()` instead of `cascadeOnDelete()`.
+    Composite foreign keys (`postings`→`journal_transactions`/`accounts`, `accounts`→`containers`,
+    `journal_transactions` self-reference) already defaulted to restrictive behavior and were left
+    unchanged. Added `tests/Feature/Domain/Ledger/DeletionRestrictionTest.php` proving a user with a
+    book, a book with an account, a book with a posted transaction, and a book with a posting all
+    reject deletion with a `QueryException` instead of cascading.
+  - **SQLite monetary representation (P1):** Implemented the amended ADR-001 exactly: real
+    `DECIMAL(38, 18)` on MySQL/PostgreSQL (unchanged), `varchar` TEXT-affinity columns on SQLite
+    (unchanged), now additionally protected on SQLite by a CHECK constraint enforcing canonical
+    decimal syntax (optional sign, digit run, optional `.` plus 1–18 fractional digits) built from
+    SQLite string functions (`GLOB`, `substr`, `length`, `instr` — no `REGEXP`, which SQLite lacks
+    without an extension). `PostingFactory` no longer calls `randomFloat()`; it assembles decimal
+    strings from `numberBetween()` integers only. Added three failure-path tests (malformed syntax,
+    non-numeric, more than 18 fractional digits) and one factory-output test proving the default
+    factory never produces a float, all in `PostingTest.php`.
+  - **Unconstrained lifecycle vocabularies (P1):** Added portable `CHECK (... IN (...))` constraints
+    for `accounts.type`, `accounts.system_role`, and `journal_transactions.status`, plus
+    `CHECK (reverses_transaction_id IS NULL OR reverses_transaction_id <> id)` for LIF-004. Since
+    SQLite has no `ALTER TABLE ADD CONSTRAINT` and Laravel's `Blueprint` has no `check()` method on
+    any grammar, SQLite CHECK constraints are added by reading the table's own compiled
+    `CREATE TABLE` SQL back from `sqlite_master` right after `Schema::create()`, dropping the
+    freshly created (still empty) table, and reissuing that same SQL with the CHECK clauses spliced
+    in before the closing parenthesis (see private `addSqliteCheckConstraints()` in both new
+    migrations). This avoids hand-duplicating columns/indexes/foreign keys in a second raw-SQL
+    representation. MySQL/PostgreSQL use a plain `ALTER TABLE ... ADD CONSTRAINT ... CHECK` after
+    creation instead, since they support it directly. The vocabulary values are literal strings
+    matching the current enums, not imports of the enum classes, per the "migrations do not
+    reference application code" rule. Recorded the SQLite-splice technique as a durable rule in
+    `.ai/rules/migrations.md`. Added failure-path tests for all four constraints across
+    `AccountTest.php` and `JournalTransactionTest.php`.
+  - **Static analysis gate (P1):** Added `@return BelongsTo<Related, $this>` / `HasMany<Related,
+    $this>` PHPDoc to every relation method across all five ledger/money models. Fixed
+    `BookFactory`'s Faker concatenation by narrowing `words()`'s `array|string` return with an
+    `is_string()` guard instead of a cast (PHPStan rejects casting `array|string` to `string`
+    directly, since the union genuinely can be an array). Fixed `PostingFactory`'s two
+    `argument.type` errors by replacing `Book::findOrFail($id)` (typed `Book|Collection`) with
+    `Book::query()->whereKey($id)->firstOrFail()` (typed `Book`), which also let `->for()` receive a
+    concrete `Book` instead of a union. `composer run types:check` now passes with zero errors.
+  - **Migration fragmentation (P2):** Replaced the six single-table migration files with three
+    batches: `2026_08_07_041343_create_instruments_table.php` (unchanged, a shared reference table
+    kept on its own per the migration-workflow skill), `2026_08_07_045203_create_books_containers_
+    and_accounts_tables.php`, and `2026_08_07_045204_create_journal_transactions_and_postings_
+    tables.php`. Each groups tables that share one creation order and one clear `down()` reversal in
+    dependency order. Used `php artisan make:migration --no-interaction` to generate the new files
+    at fresh timestamps, then removed the five superseded files with `git rm`.
+- **Important decisions or deviations:**
+  - CHECK-constraint vocabulary values are hardcoded literals in the migrations (not enum-class
+    imports), to keep migrations independent of application code that may change later, per
+    `.ai/rules/migrations.md`. A future enum change requires its own migration to update the
+    constraint — this is the same trade-off the project already accepts for other frozen schema
+    facts.
+  - The canonical-decimal-syntax CHECK is SQLite-only, matching the amended ADR-001 explicitly:
+    "SQLite CHECK constraints are the local safety net"; MySQL/PostgreSQL enforce the same fact
+    natively through `DECIMAL(38, 18)` and gain no CHECK constraint.
+  - Left `native_instrument_id`/`functional_instrument_id` foreign keys pointed at `instruments`
+    with `restrictOnDelete()` (an incidental strengthening alongside the required fixes), since an
+    instrument backing a live book or account must not silently cascade away either.
+- **Verification:**
+  - `php artisan migrate:fresh --no-interaction` against the local disposable
+    `database/database.sqlite` — all six migrations ran cleanly, including the composite,
+    self-referencing, and CHECK-constrained tables. Confirmed via `.env` (`DB_CONNECTION=sqlite`,
+    file-based) that this is not a production database.
+  - `php artisan test --compact` — 33 passed, 60 assertions, 0 failed (up from 21 passed/41
+    assertions; 12 new tests cover the five findings).
+  - `vendor/bin/pint --dirty --format agent` — passed, no changes needed.
+  - `composer run types:check` (`vendor/bin/phpstan analyse --memory-limit=1G`, the default 128M
+    parallel-worker limit was insufficient locally) — 0 errors (down from 21).
+  - `php artisan db:seed --no-interaction` — `InstrumentSeeder` still runs cleanly against the
+    rebuilt schema.
+- **Commit:** `89f86a2` — fix(ledger): address schema validation findings
 
 ## Validation
 
