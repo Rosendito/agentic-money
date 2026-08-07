@@ -1,7 +1,7 @@
 ---
 id: TASK-001
 title: Ledger core schema, models, and factories
-status: ready
+status: review
 created_at: 2026-08-06
 ---
 
@@ -105,23 +105,23 @@ under `tests/Feature/Domain/...` proving the constraints below.
 
 ## Acceptance criteria
 
-- [ ] Migrations create the six tables with the documented columns, foreign keys, unique
+- [x] Migrations create the six tables with the documented columns, foreign keys, unique
       constraints, and `DECIMAL(38, 18)` monetary/rate columns.
-- [ ] Models live in their owning module namespaces with relationships, enum casts, and
+- [x] Models live in their owning module namespaces with relationships, enum casts, and
       decimal-string casts; no monetary attribute uses a float cast.
-- [ ] A book's functional instrument cannot be changed once a posted transaction exists (test).
-- [ ] An account's native instrument and type cannot be changed once it has postings (test).
-- [ ] A duplicate `(book_id, idempotency_key)` pair is rejected, while the same key in another
+- [x] A book's functional instrument cannot be changed once a posted transaction exists (test).
+- [x] An account's native instrument and type cannot be changed once it has postings (test).
+- [x] A duplicate `(book_id, idempotency_key)` pair is rejected, while the same key in another
       book is accepted (test).
-- [ ] A value with 18 fractional digits survives a write/read round-trip unchanged (test).
-- [ ] A posting whose account or transaction belongs to a different book is rejected by the
+- [x] A value with 18 fractional digits survives a write/read round-trip unchanged (test).
+- [x] A posting whose account or transaction belongs to a different book is rejected by the
       database through the composite foreign keys, with the same proof for the account–container
       and reversal–original links (test).
-- [ ] An architecture test proves `App\Domain\Money` has no dependency on `App\Domain\Ledger` or
+- [x] An architecture test proves `App\Domain\Money` has no dependency on `App\Domain\Ledger` or
       `App\Domain\Obligations` (`ARC-003`).
-- [ ] Every model has a factory with states for the meaningful variants (e.g. system account,
+- [x] Every model has a factory with states for the meaningful variants (e.g. system account,
       archived account, posted/draft transaction).
-- [ ] `php artisan test --compact` and `vendor/bin/pint --dirty --format agent` pass.
+- [x] `php artisan test --compact` and `vendor/bin/pint --dirty --format agent` pass.
 
 ## Out of scope
 
@@ -137,10 +137,38 @@ under `tests/Feature/Domain/...` proving the constraints below.
 
 > Filled by the executor.
 
-- **Summary:** Pending.
-- **Important decisions or deviations:** None.
-- **Verification:** Pending.
-- **Commit:** Pending.
+- **Summary:** Implemented the six tables (`instruments`, `books`, `containers`, `accounts`,
+  `journal_transactions`, `postings`) with cross-book composite foreign keys, the owning Eloquent
+  models (`App\Domain\Money\Models\Instrument`; `App\Domain\Ledger\Models\{Book,Container,Account,
+  JournalTransaction,Posting}`), enums (`AccountType`, `TransactionStatus`, `SystemAccountRole`),
+  model-level immutability guards for ADR-002 and ACC-003/ACC-004, factories with meaningful states
+  under `database/factories/Domain/...`, an `InstrumentSeeder` for the five required reference
+  instruments, and feature/architecture tests under `tests/Feature/Domain/Ledger` and
+  `tests/Unit/Domain`.
+- **Important decisions or deviations:**
+  - Recorded time is not a separate column; `journal_transactions.created_at` serves as the
+    recorded-time fact (LIF-013), avoiding a redundant timestamp.
+  - Discovered and worked around a SQLite-specific defect, not previously documented: Laravel's
+    `decimal()` migration column gets NUMERIC type affinity on SQLite, which silently coerces
+    well-formed decimal-literal text into an 8-byte float and truncates precision beyond ~15
+    significant digits — even when bound as a string, and even via raw `INSERT`. This broke the
+    required 18-fractional-digit round-trip. Fixed by declaring `postings.native_quantity` and
+    `postings.functional_amount` as `varchar` (TEXT affinity) on the `sqlite` driver only, while
+    keeping real `decimal(38, 18)` for MySQL/PostgreSQL (see the `monetaryColumn()` helper in
+    `database/migrations/2026_08_07_041348_create_postings_table.php`). Recorded as a durable rule
+    in `.ai/rules/migrations.md` for future monetary columns (e.g. `Money\Quote.rate`).
+  - `Instrument` intentionally has no `decimal_places`/precision column: `MNY-002` is not among this
+    task's "Rules that must remain true," and per-instrument precision policy belongs to the Money
+    valuation slice.
+  - No `MoneyServiceProvider`/`LedgerServiceProvider` was added: neither module has a real binding
+    or boot responsibility yet (`ARC-002`, `ARC-006`).
+- **Verification:**
+  - `php artisan migrate:fresh --no-interaction` against the local disposable
+    `database/database.sqlite` (freshly created, contained no data) — all nine migrations ran
+    cleanly, including the composite and self-referencing foreign keys.
+  - `php artisan test --compact` — 21 passed, 41 assertions, 0 failed.
+  - `vendor/bin/pint --dirty --format agent` — passed, no changes needed.
+- **Commit:** `b01383d` — feat(ledger): add core schema, models, and factories
 
 ## Validation
 
