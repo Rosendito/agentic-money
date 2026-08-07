@@ -12,7 +12,9 @@ authoritative for Agentic Money. If a legacy rule conflicts with this directory,
 
 ## Current phase
 
-The current phase is **domain specification only**.
+The current phase is **foundation implementation**: the ledger schema slice is unblocked and
+implementation tasks for it may exist. Posting behavior, valuation, and obligations remain
+specification-first.
 
 Do not create implementation tasks or application code from incomplete assumptions. First:
 
@@ -109,13 +111,15 @@ The following decisions must be resolved before their affected implementation sl
 1. Cost-basis method for non-functional monetary instruments: weighted average or another method.
 2. Whether USD cash and constrained USD bank balances are one instrument with different valuation
    policies or distinct instruments when they are not economically fungible.
-3. Exact precision and rounding policy for native quantities and functional amounts.
-4. Whether a book's functional instrument may ever change after its first posted transaction.
-5. Which quote aggregation policy represents Binance P2P valuation: side-aware median, weighted
+3. Which quote aggregation policy represents Binance P2P valuation: side-aware median, weighted
    average, executable best price, or another documented calculation.
-6. Which obligation indexing rules are supported in the first release.
+4. Which obligation indexing rules are supported in the first release.
 
-Open decisions are tracked in [the decision index](decisions/README.md). Do not infer them from
+Resolved decisions: precision and rounding
+([ADR-001](decisions/ADR-001-decimal-precision-and-rounding.md)) and functional-instrument
+immutability ([ADR-002](decisions/ADR-002-functional-instrument-immutability.md)).
+
+Open decisions are tracked in [the decision records directory](decisions/README.md). Do not infer them from
 legacy database columns or UI behavior.
 
 ## Rules for implementation tasks

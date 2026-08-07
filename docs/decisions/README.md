@@ -5,7 +5,8 @@
 Decision records capture choices that materially affect accounting meaning, data compatibility, or
 implementation boundaries. They are not a diary and should not be created for routine coding choices.
 
-No decision record has been approved yet.
+Decision records are the `ADR-*.md` files in this directory. There is no separate index: the
+directory listing is the catalog, and each record carries its own status.
 
 ## Status vocabulary
 
@@ -38,14 +39,12 @@ No decision record has been approved yet.
 
 Create these only when each decision is ready to be evaluated:
 
-| Candidate                                 | Blocking scope             | Current direction                             |
-| ----------------------------------------- | -------------------------- | --------------------------------------------- |
-| Functional instrument after first posting | Book/schema foundation     | Make USDT immutable per book                  |
-| Cost-basis method                         | FX disposals and reporting | Moving weighted average                       |
-| USD cash versus constrained USD bank      | Instruments and valuation  | Explicit fungibility decision                 |
-| Decimal precision and rounding            | Schema and posting kernel  | High precision with named rounding boundaries |
-| Binance P2P quote policy                  | Automatic VES valuation    | Side-aware filtered aggregate                 |
-| Obligation indexing                       | Advanced debt settlement   | Defer; start fixed-denomination               |
+| Candidate                            | Blocking scope             | Current direction               |
+| ------------------------------------ | -------------------------- | ------------------------------- |
+| Cost-basis method                    | FX disposals and reporting | Moving weighted average         |
+| USD cash versus constrained USD bank | Instruments and valuation  | Explicit fungibility decision   |
+| Binance P2P quote policy             | Automatic VES valuation    | Side-aware filtered aggregate   |
+| Obligation indexing                  | Advanced debt settlement   | Defer; start fixed-denomination |
 
 ## Rules
 

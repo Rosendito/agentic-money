@@ -65,13 +65,12 @@ it may not accept an unexplained tolerance such as `0.01` for every instrument.
 provider precision, settlement, and display rounding are distinct. Each operation declares its
 rounding mode and scale.
 
-**Open — Exact decimal policy.** Before schema implementation, decide:
-
-- database precision and scale for native quantities, functional amounts, and rates;
-- value-object precision during intermediate calculations;
-- supported rounding modes;
-- maximum permitted explicit rounding adjustment;
-- display precision versus storage precision.
+**Resolved — Exact decimal policy.** Decided in
+[ADR-001](decisions/ADR-001-decimal-precision-and-rounding.md): native quantities, functional
+amounts, and rates use `DECIMAL(38, 18)`, values travel as decimal strings or decimal value
+objects, intermediate calculations keep at least 18 fractional digits, and each named boundary
+declares its rounding mode (round-half-up by default). The maximum permitted explicit rounding
+adjustment remains a posting-kernel decision.
 
 ## Temporal integrity
 
