@@ -53,11 +53,11 @@ Tables and models, with ownership per `09-domain-architecture.md`:
 | Container          | `App\Domain\Ledger\Models\Container`          | Book-scoped, user-facing grouping only                                                                            |
 | Account            | `App\Domain\Ledger\Models\Account`            | Book, optional container, account type, immutable native instrument, system role, archived state                  |
 | JournalTransaction | `App\Domain\Ledger\Models\JournalTransaction` | Book, status, effective/recorded time, description, idempotency key, reversal link, correction group              |
+| Posting            | `App\Domain\Ledger\Models\Posting`            | Transaction, account, signed native quantity, signed functional amount, optional memo/category dimension deferred |
 
 The idempotency scope (`LIF-008`) for manual posting commands is the book:
 `UNIQUE (book_id, idempotency_key)` on journal transactions. Provider-event uniqueness (`LIF-010`)
 belongs to the future external-import tables, not to this schema.
-| Posting            | `App\Domain\Ledger\Models\Posting`            | Transaction, account, signed native quantity, signed functional amount, optional memo/category dimension deferred |
 
 Also in scope: enums (account type, transaction status, system account role), factories under
 `database/factories/Domain/...` with useful states, `LedgerServiceProvider`/`MoneyServiceProvider`
