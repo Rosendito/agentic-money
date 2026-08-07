@@ -1,7 +1,7 @@
 ---
 id: TASK-001
 title: Ledger core schema, models, and factories
-status: review
+status: done
 created_at: 2026-08-06
 ---
 
@@ -257,36 +257,56 @@ under `tests/Feature/Domain/...` proving the constraints below.
 
 > Filled by the validator.
 
-- **Verdict:** Changes requested.
-- **Findings:**
-  - **P1 — Destructive cascades can erase posted history.** `books.user_id`, plus the direct
-    book-owned foreign keys, use cascading deletes. Deleting a user or book can therefore remove
-    accounts, posted transactions, and postings, contrary to `ACC-005` and `LIF-007`. Core ledger
-    history must use restrictive/no-action delete behavior, with tests proving posted history
-    cannot disappear through a parent deletion.
-  - **P1 — The SQLite monetary representation is an unapproved ADR-001 deviation.** The active
-    SQLite schema stores `native_quantity` and `functional_amount` as `varchar`, while the task and
-    accepted ADR require `DECIMAL(38, 18)`. The workaround preserves one round trip but does not
-    enforce numeric syntax, range, or scale, and `PostingFactory` supplies binary floats through
-    `randomFloat()`. Resolve the storage contradiction explicitly at the ADR/task level and keep
-    every monetary factory input as a decimal string.
-  - **P1 — Database lifecycle validity is not enforced.** `journal_transactions.status`, account
-    type, and system role are unconstrained strings, so invalid closed-vocabulary values can be
-    inserted directly despite the task naming lifecycle validity as a database-enforceable fact.
-    Add portable constraints and failure-path tests. Also reject a transaction that references
-    itself as its own reversal because `LIF-004` requires a new event.
-  - **P1 — The project static-analysis gate fails.** `composer run types:check` reports 21 errors:
-    missing Eloquent relation generics across the five ledger models, one invalid Faker
-    concatenation in `BookFactory`, and two factory relationship type errors in `PostingFactory`.
-  - **P2 — The migration files are more fragmented than the project convention.** In MVP mode,
-    rewrite the six domain migrations as three coherent batches: instruments; books/containers/
-    accounts; and journal transactions/postings. These groups have clear names, dependency order,
-    and reversible boundaries.
-- **Evidence:** `php artisan migrate:fresh --no-interaction` passed all nine migrations;
-  `php artisan test --compact` passed 21 tests and 41 assertions; `vendor/bin/pint --dirty --format
-  agent` passed; `composer run types:check` failed with 21 errors. Source review confirmed the
-  cascade paths, unconstrained vocabularies, SQLite `varchar` monetary columns, and float factory
-  inputs.
-- **Follow-ups:** A fresh executor should address every finding and return the task to `review`; a
-  fresh validator should re-run the full project checks and independently inspect the revised
-  schema.
+- **Verdict:** Done. Independent re-review (fresh validator) of `89f86a2`/`a1b3090` on top of the
+  amended ADR-001 (`e75042f`). Every acceptance criterion passes, all five previous findings are
+  genuinely fixed, and no new material findings were found.
+- **Previous findings, re-verified:**
+  - **Destructive cascades — fixed.** All direct book/user/instrument foreign keys now declare
+    `restrictOnDelete()` in both grouped migrations; the live SQLite schema shows `ON DELETE
+    RESTRICT`/`NO ACTION` and the composite foreign keys default to `NO ACTION`.
+    `DeletionRestrictionTest.php` proves user-with-book, book-with-account, book-with-posted-
+    transaction, and book-with-posting deletions all fail with `QueryException` and the rows
+    survive.
+  - **SQLite monetary representation — fixed and now ADR-compliant.** The amended ADR-001 makes
+    TEXT-affinity columns plus CHECK constraints the approved SQLite representation. The postings
+    migration keeps `DECIMAL(38, 18)` on MySQL/PostgreSQL and splices per-column CHECKs on SQLite
+    enforcing canonical decimal syntax and max scale 18 (verified present in `sqlite_master`; edge
+    inputs `12.34.56`, `not-a-number`, and a 19-fractional-digit value are rejected by tests).
+    `PostingFactory` builds decimal strings from integers only — no `randomFloat()` anywhere — and
+    a test asserts the raw stored values are canonical decimal strings.
+  - **Lifecycle vocabulary and self-reversal — fixed.** `accounts.type`, `accounts.system_role`,
+    and `journal_transactions.status` carry `IN (...)` CHECK constraints (spliced on SQLite,
+    `ALTER TABLE` on other engines), plus `reverses_transaction_id <> id` for LIF-004. Failure-path
+    tests exist for all four constraints, and the literal vocabularies match the enums exactly.
+  - **Static-analysis gate — fixed.** `composer run types:check -- --memory-limit=1G` passes with
+    0 errors at PHPStan level 7 over `app/` and `database/`, with no baseline file and no ignore
+    rules in `phpstan.neon`.
+  - **Migration grouping — fixed.** Three coherent batches (instruments; books/containers/accounts;
+    journal transactions/postings) with descriptive names and dependency-ordered `down()` methods.
+    `migrate:rollback --step=3` followed by `migrate` runs cleanly, so the batches are reversible.
+- **Acceptance criteria:** all ten verified pass against the code and tests, not the executor's
+  claims: six tables with composite `(id, book_id)` FK targets and per-engine monetary columns;
+  models in owning namespaces with relation generics, enum casts, and `decimal:18` string casts;
+  ADR-002 and ACC-003/ACC-004 guards proven by tests; book-scoped idempotency uniqueness proven
+  both ways; 18-fractional-digit round-trip; four cross-book rejection tests through composite
+  foreign keys; the ARC-003 architecture test; factories with meaningful states; and the full
+  check suite.
+- **Evidence (all commands re-run by this validator):**
+  - `php artisan migrate:fresh --no-interaction` against the local disposable
+    `database/database.sqlite` (confirmed `DB_CONNECTION=sqlite`, file-based; tests use
+    `:memory:`) — all six migrations ran cleanly.
+  - `php artisan test --compact` — 33 passed, 60 assertions, 0 failures.
+  - `vendor/bin/pint --test --format agent` — passed (read-only mode used to preserve reviewer
+    independence; equivalent proof to the `--dirty` fix mode).
+  - `composer run types:check -- --memory-limit=1G` — 0 errors.
+  - `php artisan migrate:rollback --step=3` + `php artisan migrate` — clean.
+  - `php artisan db:seed --no-interaction` — `InstrumentSeeder` idempotent and clean.
+  - Live-schema inspection via `sqlite_master` and `pragma foreign_key_list(postings)` confirmed
+    the spliced CHECK constraints and composite foreign keys survived the drop-and-reissue
+    technique, including the separately reissued unique indexes.
+- **Unverified gates:** real `DECIMAL(38, 18)` range/scale enforcement on MySQL/PostgreSQL is not
+  provable locally; the amended ADR-001 explicitly delegates it to the CI pipeline tracked as
+  TASK-002. The SQLite CHECK bounds scale (18) but not total precision (38); that same CI task is
+  the authoritative enforcement, per the ADR.
+- **Follow-ups (non-blocking):** none required for this task; TASK-002 (CI against a real
+  database) remains the open dependency for authoritative precision enforcement.
