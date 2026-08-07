@@ -24,6 +24,17 @@ Create intentional, reviewable commits without absorbing unrelated workspace cha
 Do not amend, squash, rebase, or otherwise rewrite existing history unless the user explicitly
 requests that operation.
 
+## Authorship and attribution
+
+- Commits must retain the repository user's configured human author and committer identity.
+- Never add Claude, Anthropic, or any other AI agent or model as an author, committer, or co-author.
+- Never add a `Co-Authored-By` trailer for Claude or another AI tool, even when that tool generated
+  or reviewed the change.
+- Before creating or amending a commit, inspect the complete message and remove any AI attribution
+  trailers. Afterward, verify the stored commit message with `git show --format=fuller --no-patch`.
+- If the user explicitly requests removal of existing AI attribution, rewrite only the affected
+  commits and verify the full reachable history afterward.
+
 ## Commit message
 
 Use this structure:
@@ -44,6 +55,8 @@ established Conventional Commit type such as `feat`, `fix`, `refactor`, `test`, 
 Always include a body separated from the subject by a blank line. Explain the relevant change and
 its reason clearly without turning the commit into a complete task report. Prefer one to three
 short paragraphs or a small list; include verification details only when they add useful context.
+
+Do not append AI attribution or co-authorship trailers to the body.
 
 Before committing, measure the final subject rather than estimating it. Shorten the title or scope
 if it exceeds 66 characters; never rely on a hosting interface to truncate it.
