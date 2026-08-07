@@ -1,7 +1,7 @@
 ---
 id: TASK-001
 title: Ledger core schema, models, and factories
-status: review
+status: changes_requested
 created_at: 2026-08-06
 ---
 
@@ -39,7 +39,9 @@ immutability). Quotes, obligations, and the posting service are separate follow-
 - `ACC-001`, `ACC-002`, `ACC-003`, `ACC-004`, `ACC-005`, `ACC-007`
 - `LIF-001` (lifecycle states), `LIF-013` (effective vs recorded time), `LIF-016` (book isolation)
 - `ARC-001`, `ARC-002`, `ARC-003` (Money has no Ledger dependency), `ARC-006`
-- ADR-001 (all monetary columns `DECIMAL(38, 18)`, decimal-string casts, no float casts)
+- ADR-001 as amended (exact decimal representation: `DECIMAL(38, 18)` on MySQL/PostgreSQL,
+  CHECK-constrained TEXT-affinity columns on SQLite; decimal-string casts; no float casts; no
+  float-produced monetary values anywhere, including factories)
 - ADR-002 (book functional instrument immutable once posted transactions exist)
 
 ## Scope
@@ -84,9 +86,12 @@ under `tests/Feature/Domain/...` proving the constraints below.
   Parent tables need a composite unique index on `(id, book_id)` to be valid FK targets. Model
   guards may exist as a second line of defense, never as the only barrier. Verify
   `foreign_key_constraints` stays enabled on the SQLite connection.
-- **SQLite precision:** the default connection is SQLite, which does not enforce `DECIMAL(38, 18)`.
-  Use `decimal:18` (string) casts, never float casts, and include a round-trip test with a value
-  carrying 18 fractional digits.
+- **SQLite precision:** SQLite's NUMERIC affinity coerces decimal literals to 8-byte floats, so
+  monetary columns follow the amended ADR-001: per-engine definition with TEXT-affinity columns
+  plus CHECK constraints (canonical decimal syntax, max scale 18) on the `sqlite` driver and real
+  `decimal(38, 18)` elsewhere. Use `decimal:18` (string) casts, never float casts, and include a
+  round-trip test with a value carrying 18 fractional digits. Factories and seeders supply decimal
+  strings, never `randomFloat()`.
 - **Immutability guards:** ADR-002 defines functional-instrument immutability as a
   domain/application-layer guarantee — implement it as a model-level guard proven by tests, not a
   database trigger. `ACC-003`/`ACC-004` (account instrument/type frozen once the account has
@@ -106,7 +111,8 @@ under `tests/Feature/Domain/...` proving the constraints below.
 ## Acceptance criteria
 
 - [x] Migrations create the six tables with the documented columns, foreign keys, unique
-      constraints, and `DECIMAL(38, 18)` monetary/rate columns.
+      constraints, and monetary columns per the amended ADR-001 (per-engine exact decimal
+      representation with SQLite CHECK constraints).
 - [x] Models live in their owning module namespaces with relationships, enum casts, and
       decimal-string casts; no monetary attribute uses a float cast.
 - [x] A book's functional instrument cannot be changed once a posted transaction exists (test).
@@ -168,13 +174,42 @@ under `tests/Feature/Domain/...` proving the constraints below.
     cleanly, including the composite and self-referencing foreign keys.
   - `php artisan test --compact` — 21 passed, 41 assertions, 0 failed.
   - `vendor/bin/pint --dirty --format agent` — passed, no changes needed.
-- **Commit:** `b01383d` — feat(ledger): add core schema, models, and factories
+- **Commit:** `10ed11d` — feat(ledger): add core schema, models, and factories
 
 ## Validation
 
 > Filled by the validator.
 
-- **Verdict:** Pending.
-- **Findings:** Pending.
-- **Evidence:** Pending.
-- **Follow-ups:** None.
+- **Verdict:** Changes requested.
+- **Findings:**
+  - **P1 — Destructive cascades can erase posted history.** `books.user_id`, plus the direct
+    book-owned foreign keys, use cascading deletes. Deleting a user or book can therefore remove
+    accounts, posted transactions, and postings, contrary to `ACC-005` and `LIF-007`. Core ledger
+    history must use restrictive/no-action delete behavior, with tests proving posted history
+    cannot disappear through a parent deletion.
+  - **P1 — The SQLite monetary representation is an unapproved ADR-001 deviation.** The active
+    SQLite schema stores `native_quantity` and `functional_amount` as `varchar`, while the task and
+    accepted ADR require `DECIMAL(38, 18)`. The workaround preserves one round trip but does not
+    enforce numeric syntax, range, or scale, and `PostingFactory` supplies binary floats through
+    `randomFloat()`. Resolve the storage contradiction explicitly at the ADR/task level and keep
+    every monetary factory input as a decimal string.
+  - **P1 — Database lifecycle validity is not enforced.** `journal_transactions.status`, account
+    type, and system role are unconstrained strings, so invalid closed-vocabulary values can be
+    inserted directly despite the task naming lifecycle validity as a database-enforceable fact.
+    Add portable constraints and failure-path tests. Also reject a transaction that references
+    itself as its own reversal because `LIF-004` requires a new event.
+  - **P1 — The project static-analysis gate fails.** `composer run types:check` reports 21 errors:
+    missing Eloquent relation generics across the five ledger models, one invalid Faker
+    concatenation in `BookFactory`, and two factory relationship type errors in `PostingFactory`.
+  - **P2 — The migration files are more fragmented than the project convention.** In MVP mode,
+    rewrite the six domain migrations as three coherent batches: instruments; books/containers/
+    accounts; and journal transactions/postings. These groups have clear names, dependency order,
+    and reversible boundaries.
+- **Evidence:** `php artisan migrate:fresh --no-interaction` passed all nine migrations;
+  `php artisan test --compact` passed 21 tests and 41 assertions; `vendor/bin/pint --dirty --format
+  agent` passed; `composer run types:check` failed with 21 errors. Source review confirmed the
+  cascade paths, unconstrained vocabularies, SQLite `varchar` monetary columns, and float factory
+  inputs.
+- **Follow-ups:** A fresh executor should address every finding and return the task to `review`; a
+  fresh validator should re-run the full project checks and independently inspect the revised
+  schema.

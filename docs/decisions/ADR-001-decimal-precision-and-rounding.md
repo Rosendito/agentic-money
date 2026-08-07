@@ -3,6 +3,8 @@
 ## Status
 
 Accepted (2026-08-06, product decision by the book owner).
+Amended (2026-08-07, product decision): defined the exact storage representation per database
+engine after discovering SQLite's NUMERIC-affinity float coercion.
 
 ## Context
 
@@ -14,8 +16,16 @@ places and large VES nominal amounts without silent truncation.
 
 ## Decision
 
-- Native quantities, functional amounts, and rates use a single high-precision decimal type:
-  `DECIMAL(38, 18)` (38 total digits, 18 fractional digits).
+- Native quantities, functional amounts, and rates use one exact decimal representation with 38
+  total digits and 18 fractional digits, stored per engine as:
+  - `DECIMAL(38, 18)` on engines with a true decimal type (MySQL, PostgreSQL);
+  - a TEXT-affinity column on SQLite, protected by CHECK constraints that enforce canonical
+    decimal syntax (optional sign, digits, optional fractional part) and a maximum scale of 18.
+    SQLite's NUMERIC affinity silently coerces decimal literals to 8-byte floats, truncating
+    beyond ~15 significant digits, so a `decimal()` column there would violate this ADR.
+- SQLite remains the zero-configuration engine for local development and parallel tests. The
+  authoritative precision enforcement is a CI pipeline running the suite against PostgreSQL or
+  MySQL (tracked as a pending task); SQLite CHECK constraints are the local safety net.
 - Monetary values cross application boundaries as decimal strings or decimal value objects, never
   binary floats (`float`/`double` casts are forbidden for monetary columns).
 - Intermediate calculations keep at least 18 fractional digits and round only at named boundaries
@@ -36,14 +46,14 @@ places and large VES nominal amounts without silent truncation.
 
 ## Consequences
 
-- One uniform column definition for all monetary columns simplifies migrations, casts, and value
-  objects.
-- SQLite (the current default connection) does not enforce `DECIMAL` precision or scale; exactness
-  depends on storing values with string/decimal casts and on tests asserting lossless round-trips
-  of 18-fractional-digit values. A future move to PostgreSQL/MySQL gains real database-level
-  enforcement without a schema redesign.
+- One logical representation for all monetary columns simplifies casts and value objects, at the
+  cost of a small per-engine branch in migrations for monetary columns.
+- Monetary values must be written as decimal strings everywhere, including factories and seeders;
+  producing them from binary floats (for example Faker's `randomFloat()`) is forbidden.
 - Model casts use `decimal:18` (string-based); comparisons in domain code use decimal math (for
   example BCMath), never float comparison.
+- Tests assert lossless round-trips of 18-fractional-digit values; CI against PostgreSQL/MySQL
+  provides real database-level range and scale enforcement.
 
 ## Affected rules and scenarios
 
