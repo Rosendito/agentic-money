@@ -8,6 +8,10 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
+    ->withEvents(discover: [
+        __DIR__.'/../app/Listeners',
+        __DIR__.'/../app/Domain/*/Listeners',
+    ])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',

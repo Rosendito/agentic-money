@@ -29,6 +29,31 @@
 - Install dependencies with `pnpm install`, add packages with `pnpm add <pkg>` (or `pnpm add -D <pkg>` for dev dependencies), and run scripts with `pnpm run <script>` (e.g. `pnpm run build`, `pnpm run dev`).
 - Node.js and pnpm versions are managed by Volta and pinned in `package.json` — do not install or switch Node versions through other tools.
 
+=== .ai/task-context-loading rules ===
+
+# Task context loading
+
+Use three levels of documentation loading before planning or implementing work:
+
+1. **Baseline context:** Always read `docs/README.md` and `docs/09-domain-architecture.md`. When an
+   assigned task document exists, also read it and `docs/tasks/README.md` before acting in the
+   planner, executor, or validator role.
+2. **Task context:** Read every document listed under the task's `Required reading` section and
+   understand every identifier under `Rules that must remain true`.
+3. **Foundation context:** Read the complete ledger knowledge base when the work changes a core
+   ledger invariant, changes the domain model or module boundaries, affects multiple domains,
+   introduces a foundational architectural decision, or reveals contradictions between
+   documents.
+
+Do not read the complete knowledge base by default when the scoped reading is sufficient. Use the
+task-to-document routing table in `docs/README.md` to expand context when a task does not yet list
+all relevant documents.
+
+Every implementation task must declare `Required reading`, `Rules that must remain true`, and `Out
+of scope`. If the requested implementation conflicts with a documented rule or an unresolved open
+decision materially affects accounting behavior, stop and report the conflict instead of silently
+reinterpreting or bypassing it.
+
 === foundation rules ===
 
 # Laravel Boost Guidelines
@@ -37,7 +62,7 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 
 ## Foundational Context
 
-This application is a Laravel application running on PHP 8.5. You are an expert with the Laravel ecosystem. Always use the APIs that match the installed major version of each package — do not assume a version.
+This application is a Laravel application running on PHP 8.4. You are an expert with the Laravel ecosystem. Always use the APIs that match the installed major version of each package — do not assume a version.
 
 Before relying on a package's API, confirm its installed version:
 - PHP packages: run `composer show --direct` to list direct dependencies with versions, or `composer show <vendor/package>` for a single package.
@@ -64,7 +89,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Frontend Bundling
 
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
+- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `pnpm run build`, `pnpm run dev`, or `composer run dev`. Ask them.
 
 ## Documentation Files
 
@@ -185,7 +210,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Vite Error
 
-- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
+- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `pnpm run build` or ask the user to run `pnpm run dev` or `composer run dev`.
 
 === wayfinder/core rules ===
 

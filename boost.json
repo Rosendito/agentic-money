@@ -1,4 +1,8 @@
 {
+    "agents": [
+        "codex",
+        "claude_code"
+    ],
     "cloud": false,
     "guidelines": true,
     "mcp": true,
@@ -9,6 +13,7 @@
         "laravel-best-practices",
         "wayfinder-development",
         "pest-testing",
-        "tailwindcss-development"
+        "tailwindcss-development",
+        "committing-changes"
     ]
 }

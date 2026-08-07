@@ -1,0 +1,4 @@
+interface:
+  display_name: "Committing Changes"
+  short_description: "Create focused commits with consistent messages"
+  default_prompt: "Use $committing-changes to prepare and create a focused commit for the current changes."
