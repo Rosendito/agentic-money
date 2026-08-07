@@ -27,16 +27,39 @@ class PostingFactory extends Factory
         return [
             'book_id' => Book::factory(),
             'journal_transaction_id' => fn (array $attributes) => JournalTransaction::factory()
-                ->for(Book::findOrFail($attributes['book_id']), 'book')
+                ->for($this->resolveBook($attributes['book_id']), 'book')
                 ->create()
                 ->id,
             'account_id' => fn (array $attributes) => Account::factory()
-                ->for(Book::findOrFail($attributes['book_id']), 'book')
+                ->for($this->resolveBook($attributes['book_id']), 'book')
                 ->create()
                 ->id,
-            'native_quantity' => fake()->randomFloat(2, -1000, 1000),
-            'functional_amount' => fake()->randomFloat(2, -1000, 1000),
+            // ADR-001: monetary values are decimal strings, never binary floats. `randomFloat()`
+            // would produce a float, losing the exactness the decimal representation exists to
+            // guarantee, so the sign, integer part, and fractional part are assembled from integers.
+            'native_quantity' => $this->decimalString(),
+            'functional_amount' => $this->decimalString(),
             'memo' => null,
         ];
+    }
+
+    /**
+     * Resolve the book a posting belongs to as a single model instance, never a collection.
+     */
+    private function resolveBook(int $bookId): Book
+    {
+        return Book::query()->whereKey($bookId)->firstOrFail();
+    }
+
+    /**
+     * Build a random decimal string without ever producing a binary float (ADR-001).
+     */
+    private function decimalString(): string
+    {
+        $sign = fake()->boolean() ? '-' : '';
+        $integer = fake()->numberBetween(0, 100000);
+        $fraction = str_pad((string) fake()->numberBetween(0, 99), 2, '0', STR_PAD_LEFT);
+
+        return "{$sign}{$integer}.{$fraction}";
     }
 }

@@ -25,11 +25,17 @@ class Container extends Model
         return ContainerFactory::new();
     }
 
+    /**
+     * @return BelongsTo<Book, $this>
+     */
     public function book(): BelongsTo
     {
         return $this->belongsTo(Book::class);
     }
 
+    /**
+     * @return HasMany<Account, $this>
+     */
     public function accounts(): HasMany
     {
         return $this->hasMany(Account::class);

@@ -45,26 +45,41 @@ class Book extends Model
         });
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return BelongsTo<Instrument, $this>
+     */
     public function functionalInstrument(): BelongsTo
     {
         return $this->belongsTo(Instrument::class, 'functional_instrument_id');
     }
 
+    /**
+     * @return HasMany<Container, $this>
+     */
     public function containers(): HasMany
     {
         return $this->hasMany(Container::class);
     }
 
+    /**
+     * @return HasMany<Account, $this>
+     */
     public function accounts(): HasMany
     {
         return $this->hasMany(Account::class);
     }
 
+    /**
+     * @return HasMany<JournalTransaction, $this>
+     */
     public function journalTransactions(): HasMany
     {
         return $this->hasMany(JournalTransaction::class);

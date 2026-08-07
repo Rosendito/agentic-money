@@ -4,6 +4,7 @@ use App\Domain\Ledger\Enums\TransactionStatus;
 use App\Domain\Ledger\Models\Book;
 use App\Domain\Ledger\Models\JournalTransaction;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 test('a duplicate idempotency key within the same book is rejected', function () {
     $book = Book::factory()->create();
@@ -42,4 +43,20 @@ test('a reversal factory state links back to the original transaction in the sam
     expect($reversal->reverses_transaction_id)->toBe($original->id)
         ->and($reversal->book_id)->toBe($original->book_id)
         ->and($reversal->status)->toBe(TransactionStatus::Posted);
+});
+
+test('the database rejects a status outside the closed vocabulary', function () {
+    $transaction = JournalTransaction::factory()->make();
+
+    expect(fn () => DB::table('journal_transactions')->insert([
+        ...$transaction->toArray(),
+        'status' => 'NotARealStatus',
+    ]))->toThrow(QueryException::class);
+});
+
+test('the database rejects a transaction that references itself as its own reversal', function () {
+    $transaction = JournalTransaction::factory()->posted()->create();
+
+    expect(fn () => $transaction->update(['reverses_transaction_id' => $transaction->id]))
+        ->toThrow(QueryException::class);
 });

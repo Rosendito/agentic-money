@@ -35,11 +35,17 @@ class JournalTransaction extends Model
         return JournalTransactionFactory::new();
     }
 
+    /**
+     * @return BelongsTo<Book, $this>
+     */
     public function book(): BelongsTo
     {
         return $this->belongsTo(Book::class);
     }
 
+    /**
+     * @return HasMany<Posting, $this>
+     */
     public function postings(): HasMany
     {
         return $this->hasMany(Posting::class);
@@ -47,6 +53,8 @@ class JournalTransaction extends Model
 
     /**
      * The original transaction this one reverses, when it is itself a reversal.
+     *
+     * @return BelongsTo<self, $this>
      */
     public function reversesTransaction(): BelongsTo
     {
@@ -56,6 +64,8 @@ class JournalTransaction extends Model
     /**
      * Posted transactions that reverse this one. A transaction is "reversed" (a derived condition)
      * when this relation contains a posted reversal.
+     *
+     * @return HasMany<self, $this>
      */
     public function reversals(): HasMany
     {

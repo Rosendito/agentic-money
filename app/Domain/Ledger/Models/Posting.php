@@ -31,16 +31,25 @@ class Posting extends Model
         return PostingFactory::new();
     }
 
+    /**
+     * @return BelongsTo<Book, $this>
+     */
     public function book(): BelongsTo
     {
         return $this->belongsTo(Book::class);
     }
 
+    /**
+     * @return BelongsTo<JournalTransaction, $this>
+     */
     public function journalTransaction(): BelongsTo
     {
         return $this->belongsTo(JournalTransaction::class);
     }
 
+    /**
+     * @return BelongsTo<Account, $this>
+     */
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);

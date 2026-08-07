@@ -58,21 +58,33 @@ class Account extends Model
         });
     }
 
+    /**
+     * @return BelongsTo<Book, $this>
+     */
     public function book(): BelongsTo
     {
         return $this->belongsTo(Book::class);
     }
 
+    /**
+     * @return BelongsTo<Container, $this>
+     */
     public function container(): BelongsTo
     {
         return $this->belongsTo(Container::class);
     }
 
+    /**
+     * @return BelongsTo<Instrument, $this>
+     */
     public function nativeInstrument(): BelongsTo
     {
         return $this->belongsTo(Instrument::class, 'native_instrument_id');
     }
 
+    /**
+     * @return HasMany<Posting, $this>
+     */
     public function postings(): HasMany
     {
         return $this->hasMany(Posting::class);

@@ -7,6 +7,8 @@ use App\Domain\Ledger\Models\Book;
 use App\Domain\Ledger\Models\JournalTransaction;
 use App\Domain\Ledger\Models\Posting;
 use App\Domain\Money\Models\Instrument;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 function createPostedPostingFor(Account $account): Posting
 {
@@ -63,4 +65,23 @@ test('an archived account factory state produces an account with an archive time
     $account = Account::factory()->archived()->create();
 
     expect($account->archived_at)->not->toBeNull();
+});
+
+test('the database rejects an account type outside the closed vocabulary', function () {
+    $account = Account::factory()->make();
+
+    expect(fn () => DB::table('accounts')->insert([
+        ...$account->toArray(),
+        'type' => 'NotARealType',
+    ]))->toThrow(QueryException::class);
+});
+
+test('the database rejects a system role outside the closed vocabulary', function () {
+    $account = Account::factory()->make();
+
+    expect(fn () => DB::table('accounts')->insert([
+        ...$account->toArray(),
+        'type' => AccountType::Asset->value,
+        'system_role' => 'NotARealRole',
+    ]))->toThrow(QueryException::class);
 });
