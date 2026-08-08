@@ -1,7 +1,7 @@
 ---
 id: TASK-006
 title: Quotes and valuation policies
-status: blocked
+status: draft
 created_at: 2026-08-08
 ---
 
@@ -27,10 +27,16 @@ history never drifts when newer prices arrive.
 
 ## Blocking decisions
 
-This task stays `blocked` until two open decisions are resolved:
+Both former blockers were settled on 2026-08-08:
 
-- which aggregation policy represents Binance P2P valuation;
-- whether USD cash and constrained USD bank balances are one instrument or distinct instruments.
+- USD cash and bank USD are distinct instruments — `USD.CASH` and `USD.BCV`
+  ([ADR-005](../decisions/ADR-005-usd-representations-as-distinct-instruments.md)).
+- The Binance P2P aggregation policy is **deferred to the provider-integration slice** and no
+  longer blocks this task, because live integrations are already out of scope here. This slice
+  records manual and observed quotes and resolves valuations from them; the quote model must keep
+  the calculation-metadata fields (`VAL-002`) that a future aggregate will populate. The noted
+  direction (executable best offer for a configurable reference amount) is recorded in
+  `docs/04-money-valuations-and-rates.md`.
 
 ## Required reading
 

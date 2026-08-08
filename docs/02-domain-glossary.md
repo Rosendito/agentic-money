@@ -80,8 +80,10 @@ a physical wallet. A container can expose several internal accounts, one per ins
 ### Fungible
 
 Two positions are fungible when their units can be substituted at par without a material economic
-restriction. Whether USD cash and a constrained USD bank balance are fungible is an explicit domain
-decision, not an assumption based only on the `USD` label.
+restriction. USD cash and bank-held BCV-valued USD are not fungible and are represented as
+distinct instruments, `USD.CASH` and `USD.BCV`
+([ADR-005](decisions/ADR-005-usd-representations-as-distinct-instruments.md)); fungibility is
+never assumed from the `USD` label alone.
 
 ## Prices and valuation terms
 

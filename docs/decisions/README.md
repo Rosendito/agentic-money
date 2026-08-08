@@ -39,11 +39,10 @@ directory listing is the catalog, and each record carries its own status.
 
 Create these only when each decision is ready to be evaluated:
 
-| Candidate                            | Blocking scope             | Current direction               |
-| ------------------------------------ | -------------------------- | ------------------------------- |
-| USD cash versus constrained USD bank | Instruments and valuation  | Explicit fungibility decision   |
-| Binance P2P quote policy             | Automatic VES valuation    | Side-aware filtered aggregate   |
-| Obligation indexing                  | Advanced debt settlement   | Defer; start fixed-denomination |
+| Candidate                | Blocking scope                     | Current direction                                            |
+| ------------------------ | ---------------------------------- | ------------------------------------------------------------ |
+| Binance P2P quote policy | Automatic VES valuation (deferred) | Executable best offer for a configurable reference amount    |
+| Obligation indexing      | Advanced debt settlement           | Defer; start fixed-denomination                              |
 
 ## Rules
 

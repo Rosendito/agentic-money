@@ -142,17 +142,22 @@ changes a pool's functional cost without changing its native quantity.
 
 These are conceptual policies, not provider commitments:
 
-| Position or purpose     | Pair      | Possible source/policy              |
-| ----------------------- | --------- | ----------------------------------- |
-| USDT value in VES       | USDT/VES  | Side-aware Binance P2P aggregate    |
-| Official USD value      | USD/VES   | BCV                                 |
-| Official EUR value      | EUR/VES   | BCV                                 |
-| Physical USD cash value | USD/VES   | Cash-market observation             |
-| USDC conversion         | USDC/USDT | Executed Binance fill or spot quote |
+| Position or purpose     | Pair         | Possible source/policy              |
+| ----------------------- | ------------ | ----------------------------------- |
+| USDT value in VES       | USDT/VES     | Side-aware Binance P2P aggregate    |
+| Official USD value      | USD.BCV/VES  | BCV                                 |
+| Official EUR value      | EUR/VES      | BCV                                 |
+| Physical USD cash value | USD.CASH/VES | Cash-market observation             |
+| USDC conversion         | USDC/USDT    | Executed Binance fill or spot quote |
 
-**Open — USD cash representation.** Decide whether physical cash and constrained bank USD are the
-same USD instrument with account-specific valuation policies or distinct instruments. Use a
-decision record because this choice affects transfers, reports, and obligations.
+**Resolved — USD representations are distinct instruments.** Physical cash USD and bank-held
+BCV-valued USD are separate instruments (`USD.CASH`, `USD.BCV`), each with its own valuation
+policy; moving value between them is an exchange with an explicit realized FX result, never a par
+transfer ([ADR-005](decisions/ADR-005-usd-representations-as-distinct-instruments.md)).
 
-**Open — Binance P2P aggregation.** Define filters, side, sample selection, outlier handling,
-minimum liquidity, and freshness before the rate is accepted for automatic posting.
+**Open — Binance P2P aggregation.** Deferred until the Binance provider integration is planned; it
+does not block manual or observed quote recording. Direction noted by the book owner (2026-08-08):
+the executable best offer on the side matching the intended economic action, for a configurable
+reference amount (for example 20,000 VES), filtered to trustworthy merchants with enough liquidity
+to absorb that amount. Exact filters, freshness, and the reference amount are policy parameters to
+be fixed in a decision record before automatic posting uses the rate.
