@@ -16,6 +16,7 @@
         "inertia-react-development",
         "tailwindcss-development",
         "committing-changes",
-        "laravel-migration-workflow"
+        "laravel-migration-workflow",
+        "validating-tasks"
     ]
 }
