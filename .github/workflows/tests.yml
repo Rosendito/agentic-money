@@ -53,6 +53,9 @@ jobs:
         with:
           php-version: '8.4'
           tools: composer:v2
+          # No coverage driver means Pest's Tia engine cannot record a dependency graph, but that is
+          # incidental here: `composer ci:check` passes `--no-tia` explicitly (see composer.json),
+          # so TIA stays off on CI by design even if coverage is enabled here later.
           coverage: none
 
       - name: Setup pnpm

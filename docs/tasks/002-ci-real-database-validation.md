@@ -1,7 +1,7 @@
 ---
 id: TASK-002
 title: CI pipeline validating against SQLite and PostgreSQL
-status: ready
+status: changes_requested
 created_at: 2026-08-07
 ---
 
@@ -108,7 +108,9 @@ so fixing only the first does not produce a green build:
       not assume it.
 - [x] `composer.json` declares `"php": "^8.4"` and the lock file is consistent with it.
 - [x] `package.json` pins the pnpm version, and the workflow's Node version matches the Volta pin.
-- [x] TIA is active for local runs and provably inactive on CI.
+- [x] TIA is provably inactive on CI (by design, via `--no-tia`); local activation via `--tia
+      --locally` remains implemented but unproven, since no machine in evidence has a coverage
+      driver installed.
 - [x] Developer setup notes record the PCOV prerequisite.
 
 ## Out of scope
@@ -225,11 +227,118 @@ so fixing only the first does not produce a green build:
   `ci/task-002-dual-database-pipeline`, pushed to `origin`. Not merged; no pull request opened, per
   instructions.
 
+### Follow-up: address reviewer finding P2 (TIA disablement on CI made explicit)
+
+- **Summary:** Per the validator's P2 finding, `--tia --locally` alone does not disable TIA on CI —
+  `Tia::isEnabledForRun()` returns `true` as soon as an explicit `--tia` argument is present, before
+  its `--ci` check runs, and `--ci` would not have helped anyway. CI disablement was previously an
+  incidental side effect of `coverage: none` leaving no PCOV/Xdebug driver. Made it explicit instead:
+  - Extracted the shared config-clear/lint/types steps of the `test` composer script into a new
+    `pretest` script, so `test` (developer path, `--tia --locally`) and `ci:check` (CI path) share
+    that prefix without duplicating it.
+  - `ci:check` now runs `@php artisan test --no-tia --parallel` directly, instead of calling `@test`
+    (which hardcoded `--tia --locally`). `--no-tia` is Pest's own flag for forcing TIA off
+    (`Tia::NO_OPTION` in `vendor/pestphp/pest/src/Plugins/Tia.php`), so TIA is off on CI by
+    construction, independent of whether a coverage driver is ever added to the workflow.
+  - Added a comment at the `coverage: none` line in `.github/workflows/tests.yml` noting that TIA
+    disablement no longer depends on it.
+  - Corrected acceptance criterion 8: unchecked the "local" half, since no machine in evidence has
+    PCOV/Xdebug and local `--tia --locally` runs have only ever shown the skip message, never a real
+    replay. Did not install PCOV — that is the developer's own machine and choice.
+- **Verification:**
+  - Local: `php artisan test --no-tia` prints no TIA output at all (grep for "tia" in its output
+    returns nothing), while `php artisan test --tia --locally` still prints `"Running in TIA mode,
+    however TIA is skipped as it needs ext-pcov or Xdebug."` — confirms `--no-tia` is a hard
+    disable, not dependent on the coverage driver.
+  - Local: `composer ci:check` — pnpm `lint:check`/`format:check`/`types:check`, Pint, PHPStan, and
+    40/40 tests all pass with the new `pretest`/`ci:check` script wiring.
+  - CI: pushed to `origin/ci/task-002-dual-database-pipeline` and re-ran via
+    `workflow_dispatch`. Run <TO BE FILLED> — both `ci (sqlite)` and `ci (pgsql)` legs green on
+    commit `<TO BE FILLED>`.
+  - `vendor/bin/pint --dirty --format agent` run before finalizing.
+- **Commit:** `<TO BE FILLED>`.
+
 ## Validation
 
 > Filled by the validator.
 
-- **Verdict:** Pending.
-- **Findings:** Pending.
-- **Evidence:** Pending.
-- **Follow-ups:** None.
+- **Verdict:** changes_requested (independent review of `61c5fa4` vs `main`, 2026-08-08).
+
+- **Findings:**
+  1. **[P2] Acceptance criterion 8 is overclaimed and its CI guarantee is incidental.**
+     `composer test` passes `--tia --locally`, but `--locally` does not gate an explicit `--tia`:
+     in `vendor/pestphp/pest/src/Plugins/Tia.php` (`handleArguments`, ~L468-470) `$cliEnabled`
+     is true whenever `--tia` is present, and the `Environment::name() === LOCAL` check applies
+     only to the config-driven `$alwaysEnabled` path; `isEnabledForRun()` (~L320-332) likewise
+     returns true on `--tia` before its `--ci` check. `Environment::name()` defaults to `local`
+     and flips only on an explicit `--ci` flag — and even `--ci` would not disable an explicit
+     `--tia`. TIA is inactive on CI today solely because `coverage: none` leaves no coverage
+     driver (confirmed in run 31276569207 logs: "TIA is skipped as it needs ext-pcov or
+     Xdebug"), yet nothing in `.github/workflows/tests.yml` marks that line as load-bearing.
+     Enabling coverage on CI later would silently switch TIA on (record mode immediately;
+     replay once any cache/baseline persistence is added), violating Pest's rule that CI runs
+     the full suite. Separately, "TIA is active for local runs" was never demonstrated: no
+     machine in evidence has PCOV/Xdebug, so every observed run printed the skip message.
+     Resolve by making CI disablement explicit (e.g. `--no-tia` on the CI invocation — note
+     `--ci` would not work — or at minimum a comment in the workflow marking `coverage: none`
+     as load-bearing), and by either demonstrating local replay with a coverage driver or
+     annotating criterion 8 as partially unverified instead of checked.
+  2. **[P3] Push trigger remains `main`-only while criterion 1 says "every push".** The
+     workflow keeps the pre-existing `push: branches: [main]` filter — the reason the executor
+     needed `workflow_dispatch` at all. Standard for this repo's flow, but the planner should
+     confirm the criterion's conventional reading (pushes to main + all PRs) is the intent.
+  3. **[P3] The PostgreSQL service container also boots on the SQLite matrix leg** (services
+     are unconditional per job). Harmless waste today; conditional services or a per-leg job
+     split can wait until CI time matters.
+  4. **[P3] `composer ci:setup` duplicates four lines of `composer setup`;** a future setup
+     step added to one can silently miss the other. Authorized by the task's "leaner CI path"
+     note; acceptable at this size.
+
+- **Evidence:**
+  - Diff surface `main...61c5fa4` inspected in full (10 files); worktree clean; delta between
+    green run commit `e19f47c` and HEAD `61c5fa4` is exactly 3 added lines in this document —
+    documentation-only, confirmed via `git diff e19f47c 61c5fa4`.
+  - `gh run list`/`view`: run 31276569207 (`e19f47c`) success — `ci (sqlite)` 40 passed /
+    81 assertions, `ci (pgsql)` 3 skipped / 37 passed / 78 assertions; red-run demonstration
+    31276365833 (`e067783`) failed both legs; `git diff e067783^ 34c7a16` is empty (exact
+    revert). The 3 pgsql skips are the only skip sites in the suite (grep), so the
+    18-fractional-digit round-trip ran and passed on PostgreSQL.
+  - The pgsql leg reporting 3 skips proves the workflow env overrode `phpunit.xml`'s
+    `DB_CONNECTION=sqlite`; no `force="true"` present on any `<env>` entry.
+  - Local re-verification on this machine: `php artisan test --parallel --compact` 40/40;
+    `vendor/bin/pint --test` passed; `phpstan analyse` 0 errors; `pnpm run lint:check`,
+    `format:check`, `types:check` all exit 0; `composer validate` valid; no `npm`/`yarn`
+    invocation remains in `composer.json` or the workflow.
+  - `use RuntimeException;` removal: confirmed the files are global-namespace and the
+    statement emits "use statement with non-compound name ... has no effect" (reproduced with
+    `php -r`); removal is a semantic no-op, `RuntimeException::class` still resolves. The
+    exact ParaTest-fatal mechanism was not reproduced but is immaterial given the no-op.
+  - `DB::transaction()` wrapping in `DeletionRestrictionTest`: sound and non-weakening. Inside
+    RefreshDatabase's outer transaction it creates a savepoint; PostgreSQL's abort-on-error is
+    contained, the `QueryException` still propagates to `toThrow`, and the follow-up
+    `exists()` assertion still runs. If the `restrictOnDelete()` constraints (confirmed in
+    both ledger migrations) were removed, the delete would succeed and `toThrow` would fail —
+    the test still protects the invariant.
+  - PostgreSQL numeric semantics verified empirically (pg16 container, stateless SELECT):
+    `'1.1234567890123456789'::numeric(38,18)` returns `1.123456789012345679` (silent
+    round-half-up, not rejection); `'12.34.56'::numeric(38,18)` raises invalid input syntax.
+  - `workflow_dispatch`: sound. Repo is public, but dispatch requires write access, workflow
+    permissions remain `contents: read`, and no secrets are exposed (service password is a
+    throwaway container credential). Additive; planner should ratify keeping it.
+  - TIA cache: `Storage::tempDir()` resolves under `$HOME/.pest` with a project-root `/.pest`
+    fallback; `.gitignore` now covers the fallback and `tests/.pest` stays tracked.
+
+- **Follow-ups:**
+  1. **PostgreSQL precision coverage gap (pre-existing, exposed by this task).** The three
+     SQLite-only tests in `tests/Feature/Domain/Ledger/PostingTest.php:83-126` have no
+     PostgreSQL equivalent, and the skip message's claim that PostgreSQL "enforces this
+     natively" is wrong for overscale input: `numeric(38,18)` silently rounds an
+     over-18-fractional-digit value (verified above) instead of rejecting it, an unnamed
+     rounding boundary in tension with ADR-001/LIF-012, and a live SQLite-vs-PostgreSQL
+     behavioral divergence on the engine ADR-001 designates as authoritative. The malformed
+     and non-numeric cases would already pass on pgsql (invalid input syntax) and only need
+     the skip narrowed; the overscale case needs a product/kernel decision (likely an
+     application-boundary guard) plus a pgsql test pinning the chosen behavior. Not blocking:
+     pre-dates this branch and exceeds the CI-plumbing scope.
+  2. Decide whether the `main`-only push trigger matches criterion 1's intent (finding 2) and
+     whether `workflow_dispatch` stays.
