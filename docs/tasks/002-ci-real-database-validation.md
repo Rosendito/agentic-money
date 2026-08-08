@@ -1,7 +1,7 @@
 ---
 id: TASK-002
 title: CI pipeline validating against SQLite and PostgreSQL
-status: changes_requested
+status: done
 created_at: 2026-08-07
 ---
 
@@ -99,8 +99,9 @@ so fixing only the first does not produce a green build:
 
 ## Acceptance criteria
 
-- [x] The workflow runs the full suite on both SQLite and PostgreSQL 17 on every push and pull
-      request, and both legs must pass for the build to be green.
+- [x] The workflow runs the full suite on both SQLite and PostgreSQL 17 on every push to `main`
+      and every pull request, and both legs must pass for the build to be green. *(Reworded by the
+      planner on 2026-08-08 to match the intended trigger scope; see validation finding 2.)*
 - [x] The 18-fractional-digit round-trip and constraint tests pass on PostgreSQL.
 - [x] Tests run with `--parallel` in both legs and in the shared local command.
 - [x] Static analysis, formatting, and frontend checks run in the same pipeline, using pnpm only.
@@ -350,3 +351,20 @@ so fixing only the first does not produce a green build:
      pre-dates this branch and exceeds the CI-plumbing scope.
   2. Decide whether the `main`-only push trigger matches criterion 1's intent (finding 2) and
      whether `workflow_dispatch` stays.
+
+## Closure
+
+Planner resolution, 2026-08-08, on the book owner's direction:
+
+- **Finding P2 (TIA):** resolved by the executor's follow-up (`07ed90d`) — CI now passes `--no-tia`
+  explicitly, verified green on runs 31277514670 and 31277610955 with no TIA output on either leg.
+  Criterion 8 was corrected to acknowledge local replay remains unverified without a coverage
+  driver.
+- **Finding 2 (push trigger):** ratified as `main`-only pushes plus all pull requests. That is the
+  intended scope; criterion 1 was reworded to say so instead of changing the workflow.
+- **`workflow_dispatch`:** ratified and kept. The validator confirmed it is additive, requires
+  write access, and exposes no secrets; manual pipeline runs are useful.
+- **Finding 1 (PostgreSQL over-scale precision gap):** spun off as
+  [TASK-003](003-decimal-scale-boundary-enforcement.md) with the product decision recorded in
+  ADR-001's 2026-08-08 amendment.
+- The branch work was squash-merged to `main` as `569e9f4`. Task closed as **done**.
