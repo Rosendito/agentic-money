@@ -252,11 +252,15 @@ so fixing only the first does not produce a green build:
     disable, not dependent on the coverage driver.
   - Local: `composer ci:check` — pnpm `lint:check`/`format:check`/`types:check`, Pint, PHPStan, and
     40/40 tests all pass with the new `pretest`/`ci:check` script wiring.
-  - CI: pushed to `origin/ci/task-002-dual-database-pipeline` and re-ran via
-    `workflow_dispatch`. Run <TO BE FILLED> — both `ci (sqlite)` and `ci (pgsql)` legs green on
-    commit `<TO BE FILLED>`.
+  - CI: pushed to `origin/ci/task-002-dual-database-pipeline` and re-ran via `workflow_dispatch`.
+    Run [31277514670](https://github.com/Rosendito/agentic-money/actions/runs/31277514670) —
+    **success**, `ci (sqlite)`: 40 passed (81 assertions), `ci (pgsql)`: 3 skipped, 37 passed (78
+    assertions), both on head SHA `07ed90d3213641440a49e766e0115f84ed91a7ee` (the branch tip at the
+    time of this run). Grepped the full log for "Running in TIA mode" / "skipped as it needs
+    ext-pcov or Xdebug" — absent on both legs, confirming `--no-tia` suppresses TIA entirely rather
+    than merely reporting it skipped.
   - `vendor/bin/pint --dirty --format agent` run before finalizing.
-- **Commit:** `<TO BE FILLED>`.
+- **Commit:** `07ed90d`.
 
 ## Validation
 
