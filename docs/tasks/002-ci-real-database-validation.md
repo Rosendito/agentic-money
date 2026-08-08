@@ -253,12 +253,16 @@ so fixing only the first does not produce a green build:
   - Local: `composer ci:check` — pnpm `lint:check`/`format:check`/`types:check`, Pint, PHPStan, and
     40/40 tests all pass with the new `pretest`/`ci:check` script wiring.
   - CI: pushed to `origin/ci/task-002-dual-database-pipeline` and re-ran via `workflow_dispatch`.
-    Run [31277514670](https://github.com/Rosendito/agentic-money/actions/runs/31277514670) —
-    **success**, `ci (sqlite)`: 40 passed (81 assertions), `ci (pgsql)`: 3 skipped, 37 passed (78
-    assertions), both on head SHA `07ed90d3213641440a49e766e0115f84ed91a7ee` (the branch tip at the
-    time of this run). Grepped the full log for "Running in TIA mode" / "skipped as it needs
-    ext-pcov or Xdebug" — absent on both legs, confirming `--no-tia` suppresses TIA entirely rather
-    than merely reporting it skipped.
+    Run [31277514670](https://github.com/Rosendito/agentic-money/actions/runs/31277514670) on
+    commit `07ed90d` (the code fix) — **success**, `ci (sqlite)`: 40 passed (81 assertions),
+    `ci (pgsql)`: 3 skipped, 37 passed (78 assertions). Grepped the full log for "Running in TIA
+    mode" / "skipped as it needs ext-pcov or Xdebug" — absent on both legs, confirming `--no-tia`
+    suppresses TIA entirely rather than merely reporting it skipped.
+  - After the follow-up documentation commit (`dd379b4`), re-ran once more so the final green run
+    covers the actual branch tip, not a prior commit: run
+    [31277610955](https://github.com/Rosendito/agentic-money/actions/runs/31277610955) — headSha
+    `dd379b4904c80af7d6c486c384fd10f5f63fa99c` (branch tip at push time) — **success**, both
+    `ci (sqlite)` and `ci (pgsql)` legs.
   - `vendor/bin/pint --dirty --format agent` run before finalizing.
 - **Commit:** `07ed90d`.
 
