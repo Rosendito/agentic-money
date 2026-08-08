@@ -20,3 +20,18 @@ driver to record its dependency graph — install one with `pecl install pcov` (
 Without a coverage driver the command still runs the full suite; it just cannot replay from cache.
 CI always runs the full suite, since its PHP setup installs no coverage driver, which makes TIA a
 no-op there without any extra flag.
+
+### Optional: run the suite against PostgreSQL
+
+Tests run on SQLite (`:memory:`) by default — keep using that for day-to-day development. When a
+change touches database behavior worth verifying against a real decimal engine (the same
+PostgreSQL 17 that CI runs), use the optional Compose service:
+
+```bash
+docker compose up --wait -d
+composer test:pgsql
+docker compose down
+```
+
+The service stores its data in memory only, so `down` leaves nothing behind. It listens on port
+55432 to avoid clashing with any local PostgreSQL installation.

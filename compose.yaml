@@ -1,0 +1,24 @@
+# Optional local PostgreSQL for running the test suite against a real decimal engine.
+# SQLite (:memory:) remains the default, zero-configuration test path; this service mirrors
+# the CI pgsql matrix leg (see .github/workflows/tests.yml) for local verification.
+#
+#   docker compose up --wait -d
+#   composer test:pgsql
+#   docker compose down
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testing
+    ports:
+      - '55432:5432'
+    # Test-only data: keep it in memory so `down` leaves nothing behind.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10

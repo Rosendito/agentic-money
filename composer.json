@@ -86,6 +86,10 @@
             "@pretest",
             "@php artisan test --tia --locally --parallel"
         ],
+        "test:pgsql": [
+            "@php artisan config:clear --ansi",
+            "DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_PORT=55432 DB_DATABASE=testing DB_USERNAME=postgres DB_PASSWORD=postgres php artisan test --no-tia --parallel"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
