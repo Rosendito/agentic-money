@@ -5,6 +5,9 @@
 Accepted (2026-08-06, product decision by the book owner).
 Amended (2026-08-07, product decision): defined the exact storage representation per database
 engine after discovering SQLite's NUMERIC-affinity float coercion.
+Amended (2026-08-08, product decision by the book owner): over-scale input is rejected at the
+application boundary, after CI against PostgreSQL revealed that engine silently rounds values with
+more than 18 fractional digits while SQLite rejects them.
 
 ## Context
 
@@ -28,6 +31,14 @@ places and large VES nominal amounts without silent truncation.
   MySQL (tracked as a pending task); SQLite CHECK constraints are the local safety net.
 - Monetary values cross application boundaries as decimal strings or decimal value objects, never
   binary floats (`float`/`double` casts are forbidden for monetary columns).
+- A monetary value carrying more than 18 fractional digits is **rejected at the application
+  boundary**, not rounded. Storage is not a rounding boundary: PostgreSQL accepts such a value and
+  silently rounds it to scale 18, while SQLite's CHECK constraints reject it, so without an
+  application-level guard correctness would depend on the engine underneath. Rejecting keeps both
+  engines identical and keeps the database a safety net rather than the decision-maker. A provider
+  that legitimately emits more precision than the ledger stores is handled at the *provider
+  precision* boundary already named in `LIF-012`, inside that adapter, with its rounding mode
+  declared and tested.
 - Intermediate calculations keep at least 18 fractional digits and round only at named boundaries
   (`LIF-012`): quote calculation, functional conversion, provider precision, settlement, and
   display.
@@ -53,7 +64,10 @@ places and large VES nominal amounts without silent truncation.
 - Model casts use `decimal:18` (string-based); comparisons in domain code use decimal math (for
   example BCMath), never float comparison.
 - Tests assert lossless round-trips of 18-fractional-digit values; CI against PostgreSQL/MySQL
-  provides real database-level range and scale enforcement.
+  provides real database-level range and syntax enforcement. Scale enforcement is the application
+  guard's responsibility, since PostgreSQL rounds rather than rejects.
+- Over-scale rejection must sit where every write passes through, including factories and seeders;
+  a guard reachable only through a form request or service method leaves those paths open.
 
 ## Affected rules and scenarios
 
