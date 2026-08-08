@@ -203,6 +203,9 @@ so fixing only the first does not produce a green build:
     - Confirmed green again after the revert:
       run [31276435111](https://github.com/Rosendito/agentic-money/actions/runs/31276435111) —
       **success**, both legs.
+    - Final confirmation on the exact commit under review (`e19f47c`, docs-only change on top):
+      run [31276569207](https://github.com/Rosendito/agentic-money/actions/runs/31276569207) —
+      **success**, both legs.
     - Confirmed TIA is inactive on CI directly from the run 31276435111 log: both legs print
       "Running in TIA mode, however TIA is skipped as it needs ext-pcov or Xdebug." and then run
       the full suite (40 passed / 37 passed+3 skipped).
