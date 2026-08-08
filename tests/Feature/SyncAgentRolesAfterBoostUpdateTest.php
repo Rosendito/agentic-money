@@ -4,7 +4,6 @@ use App\Listeners\SyncAgentRolesAfterBoostUpdate;
 use App\Support\AgentRoles\AgentRoleSynchronizer;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Filesystem\Filesystem;
-use RuntimeException;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 

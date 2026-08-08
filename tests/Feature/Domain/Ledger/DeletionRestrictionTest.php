@@ -6,12 +6,13 @@ use App\Domain\Ledger\Models\JournalTransaction;
 use App\Domain\Ledger\Models\Posting;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 test('deleting a user with a book is rejected instead of cascading', function () {
     $user = User::factory()->create();
     Book::factory()->for($user)->create();
 
-    expect(fn () => $user->delete())->toThrow(QueryException::class);
+    expect(fn () => DB::transaction(fn () => $user->delete()))->toThrow(QueryException::class);
     expect(User::query()->whereKey($user->id)->exists())->toBeTrue();
 });
 
@@ -19,7 +20,7 @@ test('deleting a book with an account is rejected instead of cascading', functio
     $book = Book::factory()->create();
     Account::factory()->for($book)->create();
 
-    expect(fn () => $book->delete())->toThrow(QueryException::class);
+    expect(fn () => DB::transaction(fn () => $book->delete()))->toThrow(QueryException::class);
     expect(Book::query()->whereKey($book->id)->exists())->toBeTrue();
 });
 
@@ -27,7 +28,7 @@ test('deleting a book with a posted transaction is rejected instead of cascading
     $book = Book::factory()->create();
     JournalTransaction::factory()->for($book)->posted()->create();
 
-    expect(fn () => $book->delete())->toThrow(QueryException::class);
+    expect(fn () => DB::transaction(fn () => $book->delete()))->toThrow(QueryException::class);
     expect(Book::query()->whereKey($book->id)->exists())->toBeTrue();
 });
 
@@ -42,6 +43,6 @@ test('deleting a book with a posting is rejected instead of cascading', function
         'account_id' => $account->id,
     ]);
 
-    expect(fn () => $book->delete())->toThrow(QueryException::class);
+    expect(fn () => DB::transaction(fn () => $book->delete()))->toThrow(QueryException::class);
     expect(Posting::query()->where('book_id', $book->id)->exists())->toBeTrue();
 });

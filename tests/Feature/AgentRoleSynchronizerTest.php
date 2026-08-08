@@ -3,7 +3,6 @@
 use App\Support\AgentRoles\AgentRoleSynchronizer;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
-use RuntimeException;
 
 beforeEach(function (): void {
     $this->agentRoleBasePath = sys_get_temp_dir().'/agent-role-sync-'.bin2hex(random_bytes(8));

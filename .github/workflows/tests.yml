@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,6 +13,34 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, pgsql]
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_CONNECTION: ${{ matrix.db }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: ${{ matrix.db == 'pgsql' && 'testing' || ':memory:' }}
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
 
     steps:
       - name: Checkout code
@@ -22,17 +51,27 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           tools: composer:v2
+          # No coverage driver means Pest's Tia engine cannot record a dependency graph, but that is
+          # incidental here: `composer ci:check` passes `--no-tia` explicitly (see composer.json),
+          # so TIA stays off on CI by design even if coverage is enabled here later.
           coverage: none
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '24.18.0'
+          cache: pnpm
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Setup Application
-        run: composer setup
+        run: composer ci:setup
 
       - name: Run CI Checks
         run: composer ci:check
