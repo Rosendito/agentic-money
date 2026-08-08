@@ -108,16 +108,18 @@ Do not load the complete knowledge base by default when task-specific context is
 
 The following decisions must be resolved before their affected implementation slices:
 
-1. Cost-basis method for non-functional monetary instruments: weighted average or another method.
-2. Whether USD cash and constrained USD bank balances are one instrument with different valuation
+1. Whether USD cash and constrained USD bank balances are one instrument with different valuation
    policies or distinct instruments when they are not economically fungible.
-3. Which quote aggregation policy represents Binance P2P valuation: side-aware median, weighted
+2. Which quote aggregation policy represents Binance P2P valuation: side-aware median, weighted
    average, executable best price, or another documented calculation.
-4. Which obligation indexing rules are supported in the first release.
+3. Which obligation indexing rules are supported in the first release.
 
 Resolved decisions: precision and rounding
-([ADR-001](decisions/ADR-001-decimal-precision-and-rounding.md)) and functional-instrument
-immutability ([ADR-002](decisions/ADR-002-functional-instrument-immutability.md)).
+([ADR-001](decisions/ADR-001-decimal-precision-and-rounding.md)), functional-instrument
+immutability ([ADR-002](decisions/ADR-002-functional-instrument-immutability.md)), the expense
+classification boundary ([ADR-003](decisions/ADR-003-expense-classification-boundary.md)), and
+cost basis with backdated acquisitions
+([ADR-004](decisions/ADR-004-cost-basis-and-backdating.md)).
 
 Open decisions are tracked in [the decision records directory](decisions/README.md). Do not infer them from
 legacy database columns or UI behavior.

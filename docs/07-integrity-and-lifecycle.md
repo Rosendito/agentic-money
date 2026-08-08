@@ -39,6 +39,12 @@ correction group.
 without altering journal facts. Any editable metadata must be explicitly classified as
 non-financial and audited.
 
+**LIF-022 — Reclassification is not a reversal.** Changing a posted posting's category is permitted
+without reversal postings, because no monetary value, quantity, effective time, instrument, or account
+changes. Every change appends to a classification history that is never deleted, keeping any past
+state of the income statement reconstructible
+([ADR-003](decisions/ADR-003-expense-classification-boundary.md)).
+
 **LIF-007 — No destructive deletion.** Posted transactions and accounts with posted history are not
 deleted through normal application behavior.
 

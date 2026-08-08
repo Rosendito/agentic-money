@@ -41,7 +41,6 @@ Create these only when each decision is ready to be evaluated:
 
 | Candidate                            | Blocking scope             | Current direction               |
 | ------------------------------------ | -------------------------- | ------------------------------- |
-| Cost-basis method                    | FX disposals and reporting | Moving weighted average         |
 | USD cash versus constrained USD bank | Instruments and valuation  | Explicit fungibility decision   |
 | Binance P2P quote policy             | Automatic VES valuation    | Side-aware filtered aggregate   |
 | Obligation indexing                  | Advanced debt settlement   | Defer; start fixed-denomination |

@@ -82,7 +82,17 @@ The book must be able to use system accounts for:
 placeholder labels. Their use must follow a defined action or policy.
 
 **LED-010 — Categories are dimensions.** Income and expense categories classify relevant postings.
-They do not substitute for balanced income or expense accounts.
+They do not substitute for balanced income or expense accounts. A category is a book-scoped record
+referenced from a posting, never a nominal account, and only the postings the classification applies
+to carry it: an expense transaction that also produces a fee and a realized FX result categorizes the
+expense posting alone ([ADR-003](decisions/ADR-003-expense-classification-boundary.md)).
+
+**LED-016 — Classification boundary.** A classification dimension belongs to the ledger only when an
+external auditor would require it to read the financial statements. Nature of expense qualifies;
+personal analysis axes such as who the spending benefited do not. Those are satellite features that
+store their own classification, written by an application use case inside the posting transaction, and
+they never add columns to journal or posting tables
+([ADR-003](decisions/ADR-003-expense-classification-boundary.md)).
 
 ## Canonical posting shapes
 
@@ -178,6 +188,6 @@ posting boundary. Direct inserts into journal or posting tables are not an appli
 
 - Whether native and functional amounts use one high-scale decimal type or per-instrument scaled
   integer value objects backed by high-precision database decimals.
-- Whether nominal system accounts are one per book and category is always a dimension, or whether
-  selected accounting reports require a hierarchy of nominal accounts. The default proposal is one
-  set of system control accounts plus categories as dimensions.
+
+Resolved: nominal system accounts are one set per book and categories are always dimensions
+([ADR-003](decisions/ADR-003-expense-classification-boundary.md)).

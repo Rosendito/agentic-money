@@ -118,18 +118,25 @@ without asking the user to enter a rate every time.
 
 ## Cost basis
 
-**Proposed — Weighted-average cost.** Use moving weighted-average functional cost for ordinary
-foreign cash and monetary balances. It is simpler for frequent VES acquisitions and disposals than
-FIFO while retaining realized FX meaning.
+**VAL-010 — Moving weighted-average cost.** Each account holding a non-functional instrument keeps a
+cost pool of total native quantity and total functional cost; its average cost is their quotient.
+An acquisition adds its native quantity and functional amount to the pool. A disposal removes
+`native quantity x current average` as carrying value, leaves the average unchanged, and posts the
+difference against the event's valuation to the realized FX gain or loss account. Carrying value is
+computed when the transaction is posted and stored in its functional amounts; the running average is
+a rebuildable projection, never a source of truth (`LED-011`). A disposal beyond the recorded balance
+is allowed, carries the current average, and yields a negative native balance that read models must
+surface (`RPT-024`).
 
-Before implementation, the selected method must define:
+**VAL-011 — Backdated acquisitions adjust forward.** A backdated acquisition is posted normally and
+the running average is recomputed from its effective time onward, but realized FX results already
+posted are never rewritten or reversed (`LIF-003`, `MNY-008`). The resulting carrying-value difference
+is posted as an explicit cost-basis adjustment transaction at the correction's recording time,
+between the affected asset account and the realized FX gain or loss account, with zero native
+quantity ([ADR-004](decisions/ADR-004-cost-basis-and-backdating.md)).
 
-- how acquisitions add native quantity and functional cost;
-- how disposals remove functional cost;
-- treatment of negative balances;
-- treatment of corrections and backdated transactions;
-- whether recalculation is synchronous or projected;
-- how explicit revaluations interact with carrying cost.
+Explicit revaluation and unrealized FX presentation remain deferred. When introduced, a revaluation
+changes a pool's functional cost without changing its native quantity.
 
 ## Market-source examples
 

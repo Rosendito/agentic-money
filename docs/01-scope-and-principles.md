@@ -73,6 +73,9 @@ The application derives the accounting postings and exposes them for review.
 - Supporting securities, tax lots, or investment accounting beyond what is necessary to keep the
   monetary-instrument model extensible.
 - Implementing household sharing or multi-user collaboration.
+- Building classification axes beyond category, such as who the spending benefited. Those are
+  satellite features on top of the ledger, not ledger capabilities
+  ([ADR-003](decisions/ADR-003-expense-classification-boundary.md), `LED-016`).
 
 ## Quality principles
 
