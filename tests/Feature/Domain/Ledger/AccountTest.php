@@ -15,7 +15,9 @@ function createPostedPostingFor(Account $account): Posting
 {
     // Posting::creating rejects attaching a row to an already-posted transaction (LIF-003), so the
     // posting is created while the transaction is still Draft and the transaction is posted only
-    // afterward — the same sequence the posting kernel itself follows.
+    // afterward — the same sequence the posting kernel itself follows. The transition itself now
+    // also validates LED-001 (external-review finding 1), so a second, balancing posting on a
+    // throwaway counterpart account is required for the flip to Posted to succeed.
     $transaction = JournalTransaction::factory()->for($account->book)->draft()->create();
 
     $posting = Posting::factory()->create([
@@ -24,6 +26,13 @@ function createPostedPostingFor(Account $account): Posting
         'account_id' => $account->id,
         'native_quantity' => '10.000000000000000000',
         'functional_amount' => '10.000000000000000000',
+    ]);
+
+    Posting::factory()->create([
+        'book_id' => $account->book_id,
+        'journal_transaction_id' => $transaction->id,
+        'native_quantity' => '-10.000000000000000000',
+        'functional_amount' => '-10.000000000000000000',
     ]);
 
     $transaction->update(['status' => TransactionStatus::Posted]);

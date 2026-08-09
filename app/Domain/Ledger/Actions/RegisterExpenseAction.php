@@ -2,14 +2,13 @@
 
 namespace App\Domain\Ledger\Actions;
 
+use App\Domain\Ledger\Actions\Concerns\AssertsValidPaymentAccount;
 use App\Domain\Ledger\Actions\Concerns\RequiresPositiveAmount;
 use App\Domain\Ledger\Actions\Concerns\ResolvesSystemAccount;
 use App\Domain\Ledger\Data\PostingInput;
 use App\Domain\Ledger\Data\PostJournalTransactionCommand;
 use App\Domain\Ledger\Data\RegisterExpenseCommand;
 use App\Domain\Ledger\Enums\SystemAccountRole;
-use App\Domain\Ledger\Exceptions\InsufficientNativeBalance;
-use App\Domain\Ledger\Models\Account;
 use App\Domain\Ledger\Models\JournalTransaction;
 use App\Domain\Money\ValueObjects\MonetaryDecimal;
 
@@ -19,9 +18,17 @@ use App\Domain\Money\ValueObjects\MonetaryDecimal;
  * to the fees control account, and the asset decreases by their sum. Rejects, by default, spending
  * that would push the asset's posted native balance negative (ACC-006), computed from posted
  * postings with no balance column (LED-011).
+ *
+ * The ACC-006 balance decision is delegated to the kernel
+ * ({@see PostJournalTransactionAction::$accountsRequiringNonNegativeBalance} via the command), not
+ * decided here: the kernel locks the asset account row (`lockForUpdate`) and re-derives the
+ * available balance inside the same database transaction that creates the postings, so the
+ * check-then-post race a concurrent expense could otherwise win (external-review finding 4) is
+ * closed by construction rather than by this action reading the balance first, unlocked.
  */
 class RegisterExpenseAction
 {
+    use AssertsValidPaymentAccount;
     use RequiresPositiveAmount;
     use ResolvesSystemAccount;
 
@@ -29,6 +36,8 @@ class RegisterExpenseAction
 
     public function handle(RegisterExpenseCommand $command): JournalTransaction
     {
+        $this->assertValidPaymentAccount($command->bookId, $command->assetAccountId);
+
         $expenseControl = $this->systemAccount($command->bookId, SystemAccountRole::ExpenseControl);
         $amount = MonetaryDecimal::fromString($command->amount);
         $this->assertPositiveAmount($amount, 'amount');
@@ -53,8 +62,6 @@ class RegisterExpenseAction
             $totalOutflow = MonetaryDecimal::sum([$totalOutflow, $feeAmount]);
         }
 
-        $this->assertSufficientNativeBalance($command->bookId, $command->assetAccountId, $totalOutflow);
-
         $postings[] = new PostingInput(
             accountId: $command->assetAccountId,
             nativeQuantity: (string) $totalOutflow->negated(),
@@ -67,25 +74,7 @@ class RegisterExpenseAction
             effectiveAt: $command->effectiveAt,
             description: $command->description,
             postings: $postings,
+            accountsRequiringNonNegativeBalance: [$command->assetAccountId],
         ));
-    }
-
-    private function assertSufficientNativeBalance(int $bookId, int $assetAccountId, MonetaryDecimal $outflow): void
-    {
-        // Scoped to the command's own book: an asset account id from another book must surface as
-        // the kernel's CrossBookReference rejection, not as a balance read against a foreign
-        // account (validation finding 5).
-        $account = Account::query()->where('book_id', $bookId)->find($assetAccountId);
-
-        if ($account === null) {
-            return;
-        }
-
-        $available = MonetaryDecimal::fromString($account->postedNativeBalance());
-        $projected = MonetaryDecimal::sum([$available, (string) $outflow->negated()]);
-
-        if ($projected->isNegative()) {
-            throw new InsufficientNativeBalance($assetAccountId, (string) $available, (string) $outflow);
-        }
     }
 }

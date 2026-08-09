@@ -10,6 +10,7 @@ use App\Domain\Ledger\Events\JournalTransactionPosted;
 use App\Domain\Ledger\Exceptions\CategoryNotAllowedOnAccountType;
 use App\Domain\Ledger\Exceptions\CrossBookReference;
 use App\Domain\Ledger\Exceptions\IdempotencyConflict;
+use App\Domain\Ledger\Exceptions\InsufficientNativeBalance;
 use App\Domain\Ledger\Exceptions\InsufficientPostings;
 use App\Domain\Ledger\Exceptions\JournalTransactionIsUnbalanced;
 use App\Domain\Ledger\Exceptions\PostingSignMismatch;
@@ -151,6 +152,14 @@ class PostJournalTransactionAction
 
     private function createTransaction(PostJournalTransactionCommand $command): JournalTransaction
     {
+        // ACC-006 (external-review finding 4): lock every posting account row for the duration of
+        // this database transaction, then re-derive and verify any account the caller flagged as
+        // native-balance-sensitive, before creating anything. Locking happens first and covers every
+        // posting account (not only the guarded ones) so two commands touching the same accounts in
+        // different orders cannot deadlock each other.
+        $this->lockPostingAccounts($command);
+        $this->assertNonNegativeBalances($command);
+
         // Created as Draft, not Posted: Posting::creating rejects attaching a row to an
         // already-posted transaction (LIF-003), so every posting for this transaction must exist
         // before it is marked Posted. The transition below is the one legitimate Draft -> Posted
@@ -159,7 +168,15 @@ class PostJournalTransactionAction
         $transaction = JournalTransaction::create([
             'book_id' => $command->bookId,
             'status' => TransactionStatus::Draft,
-            'effective_at' => $command->effectiveAt,
+            // LIF-013/external-review finding 5: normalized to UTC before persistence. The
+            // `effective_at` column has no timezone of its own (Eloquent's `datetime` cast formats
+            // the given instant's *current* timezone as a naive string, it does not convert), and
+            // the application timezone is UTC (config('app.timezone')), so a caller-supplied
+            // non-UTC instant (e.g. America/Caracas wall time) would otherwise persist its
+            // non-UTC wall-clock digits, then rehydrate as if they were already UTC — silently
+            // shifting the stored instant and, since the idempotency canonical payload also
+            // normalizes to UTC, making an identical replay disagree with what was actually stored.
+            'effective_at' => $command->effectiveAt->clone()->utc(),
             'description' => $command->description,
             'idempotency_key' => $command->idempotencyKey,
         ]);
@@ -179,6 +196,65 @@ class PostJournalTransactionAction
         $transaction->update(['status' => TransactionStatus::Posted]);
 
         return $transaction->load('postings');
+    }
+
+    /**
+     * Locks every account this command posts to, in a stable ascending-id order (so two commands
+     * sharing more than one account can never deadlock each other by locking in different orders).
+     * Must run inside the same database transaction as the posting writes below and before any of
+     * them, so a concurrent command touching the same account genuinely waits on this one to commit
+     * or roll back before it can read or write anything (ACC-006, external-review finding 4).
+     *
+     * The ascending order has to be an actual `ORDER BY` in the query, not merely a PHP-side sort of
+     * the id list passed to `whereIn()`: the database chooses its own scan/lock-acquisition order
+     * for an unordered `IN (...)` (round-2 validation finding), so sorting only the bind parameters
+     * made no real guarantee. `orderBy('id')` makes the row locks actually get taken in that order.
+     */
+    private function lockPostingAccounts(PostJournalTransactionCommand $command): void
+    {
+        $accountIds = collect($command->postings)->pluck('accountId')->unique()->sort()->values();
+
+        if ($accountIds->isEmpty()) {
+            return;
+        }
+
+        Account::query()->whereIn('id', $accountIds)->orderBy('id')->lockForUpdate()->get(['id']);
+    }
+
+    /**
+     * For every account the caller flagged as native-balance-sensitive
+     * ({@see PostJournalTransactionCommand::$accountsRequiringNonNegativeBalance}), re-derives the
+     * posted native balance and adds this command's own net native movement for that account, under
+     * the lock {@see lockPostingAccounts()} already took. Reading the balance here — inside the
+     * locked transaction, immediately before writing — instead of before the transaction opens is
+     * what closes the check-then-post race: a second, concurrent command against the same account
+     * cannot begin its own read until this one has committed or rolled back.
+     */
+    private function assertNonNegativeBalances(PostJournalTransactionCommand $command): void
+    {
+        foreach ($command->accountsRequiringNonNegativeBalance as $accountId) {
+            $account = Account::query()->find($accountId);
+
+            if ($account === null) {
+                continue;
+            }
+
+            $available = MonetaryDecimal::fromString($account->postedNativeBalance());
+
+            $netMovement = MonetaryDecimal::sum(
+                collect($command->postings)
+                    ->filter(fn (PostingInput $posting): bool => $posting->accountId === $accountId)
+                    ->map(fn (PostingInput $posting): string => $posting->nativeQuantity)
+                    ->values()
+                    ->all()
+            );
+
+            $projected = MonetaryDecimal::sum([$available, $netMovement]);
+
+            if ($projected->isNegative()) {
+                throw new InsufficientNativeBalance($accountId, (string) $available, (string) $netMovement->negated());
+            }
+        }
     }
 
     private function findExisting(int $bookId, string $idempotencyKey): ?JournalTransaction

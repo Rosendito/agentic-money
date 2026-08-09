@@ -2,6 +2,7 @@
 
 namespace App\Domain\Ledger\Actions;
 
+use App\Domain\Ledger\Actions\Concerns\AssertsValidPaymentAccount;
 use App\Domain\Ledger\Actions\Concerns\RequiresPositiveAmount;
 use App\Domain\Ledger\Actions\Concerns\ResolvesSystemAccount;
 use App\Domain\Ledger\Data\PostingInput;
@@ -17,6 +18,7 @@ use App\Domain\Money\ValueObjects\MonetaryDecimal;
  */
 class RegisterOpeningBalanceAction
 {
+    use AssertsValidPaymentAccount;
     use RequiresPositiveAmount;
     use ResolvesSystemAccount;
 
@@ -24,6 +26,8 @@ class RegisterOpeningBalanceAction
 
     public function handle(RegisterOpeningBalanceCommand $command): JournalTransaction
     {
+        $this->assertValidPaymentAccount($command->bookId, $command->assetAccountId);
+
         $openingEquity = $this->systemAccount($command->bookId, SystemAccountRole::OpeningEquity);
         $amount = MonetaryDecimal::fromString($command->amount);
         $this->assertPositiveAmount($amount, 'amount');

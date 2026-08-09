@@ -15,6 +15,20 @@ final readonly class PostJournalTransactionCommand
 {
     /**
      * @param  list<PostingInput>  $postings
+     * @param  list<int>  $accountsRequiringNonNegativeBalance  Account ids the kernel must lock
+     *                                                          (`lockForUpdate`) and verify would
+     *                                                          not go native-balance-negative,
+     *                                                          inside the same database
+     *                                                          transaction that creates this
+     *                                                          command's postings (ACC-006).
+     *                                                          `RegisterExpenseAction` is the
+     *                                                          first caller: without this, the
+     *                                                          balance decision and the posting
+     *                                                          would live in two separate,
+     *                                                          unlocked steps, letting two
+     *                                                          concurrent expenses both read a
+     *                                                          sufficient balance before either
+     *                                                          posts (external-review finding 4).
      */
     public function __construct(
         public int $bookId,
@@ -22,5 +36,6 @@ final readonly class PostJournalTransactionCommand
         public CarbonInterface $effectiveAt,
         public ?string $description,
         public array $postings,
+        public array $accountsRequiringNonNegativeBalance = [],
     ) {}
 }
