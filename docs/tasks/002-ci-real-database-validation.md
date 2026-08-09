@@ -2,6 +2,7 @@
 id: TASK-002
 title: CI pipeline validating against SQLite and PostgreSQL
 status: done
+rigor: agile
 created_at: 2026-08-07
 ---
 

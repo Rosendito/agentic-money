@@ -2,6 +2,7 @@
 id: TASK-005
 title: Reversal, correction, and reclassification
 status: draft
+rigor: strict
 created_at: 2026-08-08
 ---
 

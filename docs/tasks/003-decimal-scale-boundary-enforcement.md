@@ -2,6 +2,7 @@
 id: TASK-003
 title: Enforce decimal scale at the application boundary
 status: done
+rigor: strict
 created_at: 2026-08-08
 ---
 

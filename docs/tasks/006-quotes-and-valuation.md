@@ -2,6 +2,7 @@
 id: TASK-006
 title: Quotes and valuation policies
 status: draft
+rigor: strict
 created_at: 2026-08-08
 ---
 

@@ -2,6 +2,7 @@
 id: TASK-001
 title: Ledger core schema, models, and factories
 status: done
+rigor: strict
 created_at: 2026-08-06
 ---
 
