@@ -4,18 +4,32 @@ namespace App\Domain\Ledger\Models;
 
 use App\Domain\Ledger\Enums\AccountType;
 use App\Domain\Ledger\Enums\SystemAccountRole;
+use App\Domain\Ledger\Enums\TransactionStatus;
 use App\Domain\Ledger\Exceptions\AccountAttributeIsImmutable;
 use App\Domain\Money\Models\Instrument;
+use App\Domain\Money\ValueObjects\MonetaryDecimal;
 use Database\Factories\Domain\Ledger\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * A ledger position with one account type and one immutable native instrument
  * (docs/02-domain-glossary.md, "Account").
+ *
+ * @property int $id
+ * @property int $book_id
+ * @property int|null $container_id
+ * @property string $name
+ * @property AccountType $type
+ * @property int $native_instrument_id
+ * @property SystemAccountRole|null $system_role
+ * @property Carbon|null $archived_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 #[Fillable(['book_id', 'container_id', 'name', 'type', 'native_instrument_id', 'system_role', 'archived_at'])]
 class Account extends Model
@@ -88,5 +102,20 @@ class Account extends Model
     public function postings(): HasMany
     {
         return $this->hasMany(Posting::class);
+    }
+
+    /**
+     * The account's native balance: the exact decimal-string sum of every posted posting's native
+     * quantity (LED-011, LED-012). There is no cached balance column; this is always derived.
+     */
+    public function postedNativeBalance(): string
+    {
+        $quantities = $this->postings()
+            ->whereHas('journalTransaction', fn ($query) => $query->where('status', TransactionStatus::Posted))
+            ->pluck('native_quantity');
+
+        return $quantities->isEmpty()
+            ? '0.000000000000000000'
+            : (string) MonetaryDecimal::sum($quantities);
     }
 }

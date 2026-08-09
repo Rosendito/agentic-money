@@ -75,6 +75,56 @@ final readonly class MonetaryDecimal implements Stringable
         return new self((string) BigDecimal::of($value)->toScale(self::MAX_FRACTIONAL_DIGITS, RoundingMode::Unnecessary));
     }
 
+    /**
+     * Sum a set of decimal strings (or MonetaryDecimal instances) using exact decimal arithmetic
+     * (LIF-011: no float math, no epsilon). Every value is validated through {@see fromString()}
+     * first, so a malformed or over-scale operand is rejected the same way a single value would be.
+     *
+     * @param  iterable<string|self>  $values
+     */
+    public static function sum(iterable $values): self
+    {
+        $total = BigDecimal::zero();
+
+        foreach ($values as $value) {
+            $decimal = $value instanceof self ? $value : self::fromString($value);
+            $total = $total->plus(BigDecimal::of((string) $decimal));
+        }
+
+        // Every operand already carries at most 18 fractional digits (proven by fromString()), and
+        // decimal addition never increases scale beyond the largest operand's, so widening to scale
+        // 18 only pads zeros and can never round.
+        return new self((string) $total->toScale(self::MAX_FRACTIONAL_DIGITS, RoundingMode::Unnecessary));
+    }
+
+    /**
+     * Whether this value is exactly zero. Uses `BigDecimal`'s numeric comparison, not a string
+     * comparison, so `-0` and `0.000000000000000000` are both zero (LIF-011's "-0" normalization
+     * trap).
+     */
+    public function isZero(): bool
+    {
+        return BigDecimal::of($this->value)->isZero();
+    }
+
+    /**
+     * Whether this value is strictly negative.
+     */
+    public function isNegative(): bool
+    {
+        return BigDecimal::of($this->value)->isNegative();
+    }
+
+    /**
+     * The sign-flipped value, at the same scale. Used by intent actions to derive a counterpart
+     * posting's amount from a caller-supplied positive magnitude, never by flipping a sign the
+     * kernel itself judged to be wrong (LED-008: "it does not silently flip signs").
+     */
+    public function negated(): self
+    {
+        return new self((string) BigDecimal::of($this->value)->negated()->toScale(self::MAX_FRACTIONAL_DIGITS, RoundingMode::Unnecessary));
+    }
+
     public function __toString(): string
     {
         return $this->value;

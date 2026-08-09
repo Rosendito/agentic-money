@@ -14,9 +14,31 @@ return new class extends Migration
      * Journal transactions and postings are one coherent schema slice: a posting always belongs to
      * exactly one journal transaction and cannot exist without it
      * (docs/09-domain-architecture.md, migration grouping).
+     *
+     * Categories are added to this same slice (ADR-003): a book-scoped dimension a posting may
+     * optionally reference, needed as a foreign-key target before `postings` is created below. The
+     * TASK-001 migrations that shipped `postings` with `memo` only have never run in a real
+     * environment, so the category reference is added here in place rather than through a
+     * follow-up migration.
      */
     public function up(): void
     {
+        Schema::create('categories', function (Blueprint $table) {
+            $table->id();
+            // Core ledger history must survive a book deletion (ACC-005, LIF-007): restrict, never
+            // cascade.
+            $table->foreignId('book_id')->constrained()->restrictOnDelete();
+            $table->string('name');
+            $table->timestamps();
+
+            // A category name is unique within its book (flat vocabulary, ADR-003).
+            $table->unique(['book_id', 'name']);
+
+            // Composite unique index required as the FK target for postings(category_id, book_id),
+            // enforcing that a category can only classify a posting within its own book (LIF-016).
+            $table->unique(['id', 'book_id']);
+        });
+
         Schema::create('journal_transactions', function (Blueprint $table) {
             $table->id();
             // Core ledger history must survive a book deletion (ACC-005, LIF-007): restrict, never
@@ -70,11 +92,12 @@ return new class extends Migration
             $table->foreignId('account_id');
             $this->monetaryColumn($table, 'native_quantity');
             $this->monetaryColumn($table, 'functional_amount');
+            $table->foreignId('category_id')->nullable();
             $table->string('memo')->nullable();
             $table->timestamps();
 
-            // Cross-book integrity (LIF-016): a posting's transaction and account must belong to the
-            // same book as the posting itself.
+            // Cross-book integrity (LIF-016): a posting's transaction, account, and category must
+            // belong to the same book as the posting itself.
             $table->foreign(['journal_transaction_id', 'book_id'])
                 ->references(['id', 'book_id'])
                 ->on('journal_transactions');
@@ -82,6 +105,10 @@ return new class extends Migration
             $table->foreign(['account_id', 'book_id'])
                 ->references(['id', 'book_id'])
                 ->on('accounts');
+
+            $table->foreign(['category_id', 'book_id'])
+                ->references(['id', 'book_id'])
+                ->on('categories');
         });
 
         // ADR-001 (amended): SQLite's NUMERIC affinity silently coerces decimal-literal text to an
@@ -148,6 +175,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('postings');
         Schema::dropIfExists('journal_transactions');
+        Schema::dropIfExists('categories');
     }
 
     /**

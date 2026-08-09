@@ -18,10 +18,14 @@ class InstrumentSeeder extends Seeder
     {
         $instruments = [
             ['code' => 'USDT', 'name' => 'Tether'],
-            ['code' => 'USD', 'name' => 'United States Dollar'],
-            ['code' => 'VES', 'name' => 'Venezuelan Bolívar'],
             ['code' => 'USDC', 'name' => 'USD Coin'],
+            ['code' => 'VES', 'name' => 'Venezuelan Bolívar'],
             ['code' => 'EUR', 'name' => 'Euro'],
+            // ADR-005: physical cash USD and bank-held (BCV-rate) USD are distinct, non-fungible
+            // instruments, not one merged "USD". The seeder has never run against real data, so the
+            // former single 'USD' row is replaced in place rather than kept alongside these.
+            ['code' => 'USD.CASH', 'name' => 'US Dollar (cash)'],
+            ['code' => 'USD.BCV', 'name' => 'US Dollar (BCV official rate)'],
         ];
 
         foreach ($instruments as $instrument) {

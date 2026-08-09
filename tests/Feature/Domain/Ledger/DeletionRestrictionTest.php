@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Ledger\Enums\TransactionStatus;
 use App\Domain\Ledger\Models\Account;
 use App\Domain\Ledger\Models\Book;
 use App\Domain\Ledger\Models\JournalTransaction;
@@ -35,13 +36,18 @@ test('deleting a book with a posted transaction is rejected instead of cascading
 test('deleting a book with a posting is rejected instead of cascading', function () {
     $book = Book::factory()->create();
     $account = Account::factory()->for($book)->create();
-    $transaction = JournalTransaction::factory()->for($book)->posted()->create();
+    // Posting::creating rejects attaching a row to an already-posted transaction (LIF-003), so the
+    // posting is created while the transaction is still Draft and the transaction is posted only
+    // afterward — the same sequence the posting kernel itself follows.
+    $transaction = JournalTransaction::factory()->for($book)->draft()->create();
 
     Posting::factory()->create([
         'book_id' => $book->id,
         'journal_transaction_id' => $transaction->id,
         'account_id' => $account->id,
     ]);
+
+    $transaction->update(['status' => TransactionStatus::Posted]);
 
     expect(fn () => DB::transaction(fn () => $book->delete()))->toThrow(QueryException::class);
     expect(Posting::query()->where('book_id', $book->id)->exists())->toBeTrue();

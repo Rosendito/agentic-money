@@ -2,6 +2,7 @@
 
 use App\Domain\Ledger\Models\Account;
 use App\Domain\Ledger\Models\Book;
+use App\Domain\Ledger\Models\Category;
 use App\Domain\Ledger\Models\Container;
 use App\Domain\Ledger\Models\JournalTransaction;
 use App\Domain\Ledger\Models\Posting;
@@ -12,7 +13,7 @@ arch('Money has no dependency on Ledger or Obligations')
     ->not->toUse(['App\Domain\Ledger', 'App\Domain\Obligations']);
 
 test('no monetary attribute uses a float or double cast', function () {
-    $models = [Instrument::class, Book::class, Container::class, Account::class, JournalTransaction::class, Posting::class];
+    $models = [Instrument::class, Book::class, Container::class, Account::class, JournalTransaction::class, Posting::class, Category::class];
 
     foreach ($models as $model) {
         $casts = (new $model)->getCasts();

@@ -2,6 +2,7 @@
 
 use App\Domain\Ledger\Models\Account;
 use App\Domain\Ledger\Models\Book;
+use App\Domain\Ledger\Models\Category;
 use App\Domain\Ledger\Models\Container;
 use App\Domain\Ledger\Models\JournalTransaction;
 use App\Domain\Ledger\Models\Posting;
@@ -62,6 +63,37 @@ test('a posting whose transaction belongs to a different book is rejected', func
         'journal_transaction_id' => $transactionInOtherBook->id,
         'account_id' => $account->id,
     ]))->toThrow(QueryException::class);
+});
+
+test('a posting whose category belongs to a different book is rejected', function () {
+    $book = Book::factory()->create();
+    $otherBook = Book::factory()->create();
+    $account = Account::factory()->for($book)->create();
+    $transaction = JournalTransaction::factory()->for($book)->create();
+    $categoryInOtherBook = Category::factory()->for($otherBook)->create();
+
+    expect(fn () => Posting::factory()->create([
+        'book_id' => $book->id,
+        'journal_transaction_id' => $transaction->id,
+        'account_id' => $account->id,
+        'category_id' => $categoryInOtherBook->id,
+    ]))->toThrow(QueryException::class);
+});
+
+test('a posting whose category belongs to the same book is accepted', function () {
+    $book = Book::factory()->create();
+    $account = Account::factory()->for($book)->create();
+    $transaction = JournalTransaction::factory()->for($book)->create();
+    $category = Category::factory()->for($book)->create();
+
+    $posting = Posting::factory()->create([
+        'book_id' => $book->id,
+        'journal_transaction_id' => $transaction->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+    ]);
+
+    expect($posting->category_id)->toBe($category->id);
 });
 
 test('an account whose container belongs to a different book is rejected', function () {

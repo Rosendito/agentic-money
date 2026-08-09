@@ -83,6 +83,13 @@ return new class extends Migration
             DB::statement('ALTER TABLE accounts ADD CONSTRAINT accounts_type_check CHECK (type IN ('.$this->quotedList($accountTypes).'))');
             DB::statement('ALTER TABLE accounts ADD CONSTRAINT accounts_system_role_check CHECK (system_role IS NULL OR system_role IN ('.$this->quotedList($systemRoles).'))');
         }
+
+        // ACC-007/LIF-017: exactly one system account per role per book. A plain unique index would
+        // also forbid more than one ordinary (system_role IS NULL) account per book, so this is a
+        // partial index scoped to system-managed rows only. Both SQLite and PostgreSQL support a
+        // `WHERE` clause on `CREATE UNIQUE INDEX` with identical syntax; Laravel's Blueprint has no
+        // fluent method for a partial index.
+        DB::statement('CREATE UNIQUE INDEX accounts_book_id_system_role_unique ON accounts (book_id, system_role) WHERE system_role IS NOT NULL');
     }
 
     /**

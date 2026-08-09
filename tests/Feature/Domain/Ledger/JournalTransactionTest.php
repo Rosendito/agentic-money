@@ -55,7 +55,10 @@ test('the database rejects a status outside the closed vocabulary', function () 
 });
 
 test('the database rejects a transaction that references itself as its own reversal', function () {
-    $transaction = JournalTransaction::factory()->posted()->create();
+    // A draft transaction, not a posted one: this proves the CHECK constraint independently of the
+    // LIF-003 immutability guard (TASK-004), which would otherwise reject the update before it ever
+    // reaches the database.
+    $transaction = JournalTransaction::factory()->draft()->create();
 
     expect(fn () => $transaction->update(['reverses_transaction_id' => $transaction->id]))
         ->toThrow(QueryException::class);

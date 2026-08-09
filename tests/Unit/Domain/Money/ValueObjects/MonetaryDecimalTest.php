@@ -85,3 +85,38 @@ test('malformed decimal syntax is rejected by the value object itself, not left 
     'trailing tab' => "1.5\t",
     'trailing carriage return' => "1.5\r",
 ]);
+
+test('sum adds decimal strings exactly, never with float arithmetic', function () {
+    $sum = MonetaryDecimal::sum(['0.1', '0.2']);
+
+    expect((string) $sum)->toBe('0.300000000000000000');
+});
+
+test('sum treats a negative and its positive counterpart as an exact zero', function () {
+    $sum = MonetaryDecimal::sum(['10.5', '-10.5']);
+
+    expect($sum->isZero())->toBeTrue();
+});
+
+test('sum accepts a mix of strings and MonetaryDecimal instances', function () {
+    $sum = MonetaryDecimal::sum(['5', MonetaryDecimal::fromString('-2')]);
+
+    expect((string) $sum)->toBe('3.000000000000000000');
+});
+
+test('isZero is true for -0 and false for any non-zero value', function () {
+    expect(MonetaryDecimal::fromString('-0.0')->isZero())->toBeTrue()
+        ->and(MonetaryDecimal::fromString('0.000000000000000001')->isZero())->toBeFalse();
+});
+
+test('isNegative reflects the sign, not the presence of a leading minus in the stored string', function () {
+    expect(MonetaryDecimal::fromString('-5')->isNegative())->toBeTrue()
+        ->and(MonetaryDecimal::fromString('5')->isNegative())->toBeFalse()
+        ->and(MonetaryDecimal::fromString('0')->isNegative())->toBeFalse();
+});
+
+test('negated flips the sign without changing the magnitude', function () {
+    expect((string) MonetaryDecimal::fromString('5')->negated())->toBe('-5.000000000000000000')
+        ->and((string) MonetaryDecimal::fromString('-5')->negated())->toBe('5.000000000000000000')
+        ->and(MonetaryDecimal::fromString('0')->negated()->isZero())->toBeTrue();
+});
