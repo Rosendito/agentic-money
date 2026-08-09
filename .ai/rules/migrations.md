@@ -17,6 +17,6 @@ Pattern used in `create_books_containers_and_accounts_tables.php` and `create_jo
 
 Order matters: run this splice for a table BEFORE creating any other table that holds a foreign key into it — you cannot `DROP TABLE` a table that is already referenced by another table's FK.
 
-On MySQL/PostgreSQL, `ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)` works fine as a normal statement after `Schema::create()`; only SQLite needs the splice technique. `IN (...)` vocabulary checks should be portable across all three engines; decimal-syntax CHECKs are only needed on SQLite since MySQL/PostgreSQL enforce it natively via `DECIMAL(38, 18)` (ADR-001).
+On MySQL/PostgreSQL, `ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)` works fine as a normal statement after `Schema::create()`; only SQLite needs the splice technique. `IN (...)` vocabulary checks should be portable across all three engines; decimal-syntax CHECKs are only needed on SQLite since MySQL/PostgreSQL enforce canonical decimal *syntax* natively via `DECIMAL(38, 18)`. They do **not** enforce the maximum *scale* natively — a value with more than 18 fractional digits is silently rounded, not rejected — so scale rejection is an application-level guard (`App\Domain\Money\Casts\MonetaryScale`), not a database constraint, on every engine (ADR-001, 2026-08-08 amendment).
 
 Migrations must not import application Enum/Model classes for the vocabulary list (frozen-schema-snapshot rule) — hardcode the literal values as of that migration instead.

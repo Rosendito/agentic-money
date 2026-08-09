@@ -2,6 +2,7 @@
 
 namespace App\Domain\Ledger\Models;
 
+use App\Domain\Money\Casts\MonetaryScale;
 use Database\Factories\Domain\Ledger\PostingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,8 +22,11 @@ class Posting extends Model
     protected function casts(): array
     {
         return [
-            'native_quantity' => 'decimal:18',
-            'functional_amount' => 'decimal:18',
+            // Rejects more than 18 fractional digits at the application boundary instead of
+            // relying on the database (ADR-001, 2026-08-08 amendment): PostgreSQL's
+            // DECIMAL(38, 18) would otherwise round an over-scale value silently.
+            'native_quantity' => MonetaryScale::class,
+            'functional_amount' => MonetaryScale::class,
         ];
     }
 

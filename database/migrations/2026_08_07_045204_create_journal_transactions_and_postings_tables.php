@@ -88,7 +88,12 @@ return new class extends Migration
         // 8-byte float, so `native_quantity`/`functional_amount` are stored as TEXT-affinity
         // columns there (see `monetaryColumn()`) and protected by a CHECK enforcing canonical
         // decimal syntax (optional sign, digits, optional fractional part) and a maximum scale of
-        // 18. MySQL/PostgreSQL enforce this natively through `DECIMAL(38, 18)` and need no CHECK.
+        // 18. MySQL/PostgreSQL enforce canonical decimal *syntax* natively through `DECIMAL(38, 18)`
+        // and need no CHECK for that, but they do not enforce the maximum *scale*: they silently
+        // round a value with more than 18 fractional digits instead of rejecting it. Scale rejection
+        // for both engines is therefore an application-level guard
+        // (`App\Domain\Money\Casts\MonetaryScale`), not a database constraint (ADR-001, 2026-08-08
+        // amendment).
         $this->addSqliteCheckConstraints('postings', [
             $this->canonicalDecimalCheck('native_quantity'),
             $this->canonicalDecimalCheck('functional_amount'),
