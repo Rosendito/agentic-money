@@ -1,7 +1,7 @@
 ---
 id: TASK-005
 title: Reversal, correction, and reclassification
-status: ready
+status: blocked
 rigor: strict
 created_at: 2026-08-08
 ---
@@ -29,6 +29,13 @@ exist before real data accumulates.
 [ADR-003](../decisions/ADR-003-expense-classification-boundary.md) decided that reclassification is
 not a reversal and requires a history that is never deleted.
 
+**Gate:** this task is `blocked` until [TASK-008](008-posting-kernel-hardening.md) is done and
+merged. TASK-008 changes the Posted transition, the immutability mechanism, and the ACC-006
+concurrency contract; this plan's final shape was reviewed against that outcome and must be
+re-checked by the planner against TASK-008's *executed* result before moving to `ready`. An
+external plan review (2026-08-08, third model) raised seven findings; the decisions below resolve
+them.
+
 ## Required reading
 
 - [Ledger knowledge base](../README.md)
@@ -43,6 +50,9 @@ not a reversal and requires a history that is never deleted.
   classification history
 - [TASK-004](004-categories-and-posting-engine.md) — the kernel this task publishes through,
   including both validation rounds (the Draft→Posted sequencing and the guard behavior matter here)
+- [TASK-008](008-posting-kernel-hardening.md) — **as executed and validated**, not as planned: its
+  immutability mechanism, Posted-transition validation, ACC-006 locking pattern, and time
+  normalization are the contract this task builds on
 
 ## Rules that must remain true
 
@@ -81,20 +91,52 @@ not a reversal and requires a history that is never deleted.
 - **Reversal metadata:** own effective and recorded times plus an explicit reason (`LIF-004`); the
   reason lives in the transaction description. Backdating a reversal's effective time follows the
   same rules as any posting; no cost-basis recalculation exists yet (out of scope).
-- **Correction group (`LIF-005`):** correcting means reverse plus post a replacement, all linked
-  through the correction-group column TASK-001 shipped. The replacement is an ordinary command with
-  its own idempotency key (`SCN-REV-001`). Decide the group's shape simply: original, reversal, and
-  replacement share one group identifier; a `CorrectJournalTransactionAction` may orchestrate both
-  steps in one database transaction, but each posted transaction stays a complete, individually
-  valid event.
+- **Correction group without mutating the original (`LIF-005`).** The original is posted and
+  immutable, so it can never be updated to join a group. Decision: **the group identifier is the
+  original transaction's id.** The reversal already points at the original through
+  `reverses_transaction_id`; the replacement stores `correction_group_id = original id` at
+  creation. Membership of the original is implicit — it is the id — so no posted row is ever
+  edited, no annotation becomes mutable, and no new table is needed. Group queries derive the trio
+  from those two immutable links.
+- **Correction is atomic.** Decision: `CorrectJournalTransactionAction` wraps reversal and
+  replacement in **one database transaction — both post or neither does.** There is no resumable
+  half-state: a failure anywhere rolls back everything, and the retry starts clean. The correction
+  command carries its own idempotency key; its canonical payload embeds the original id and both
+  child payloads, so a replay returns the existing pair and a mutated retry conflicts.
+- **Idempotency semantics for reversal are three distinct cases (`LIF-009`):** same key + same
+  canonical payload returns the existing reversal (replay, not an error); same key + different
+  payload raises `IdempotencyConflict`; different key + already-reversed original raises the
+  already-reversed rejection. The kernel's canonical payload must incorporate
+  `reverses_transaction_id` and `correction_group_id` — today it does not, and without them a
+  reversal and an ordinary transaction with identical postings would collide.
 - **Reclassification (`LIF-022`, ADR-003):** `ReclassifyPostingAction` changes a posted posting's
   category with no postings created and no monetary field touched. Every change appends a row to a
   new book-scoped classification-history table (posting reference, previous category, new category,
-  changed at) that nothing deletes — guard the model against update/delete like the ledger tables,
-  covering all three verbs (`creating` is legitimate only through the action). Setting the same
-  category is a no-op that appends nothing. Cross-book categories die at the database through the
-  same composite-FK pattern as TASK-004. Only postings whose account type admits a category
-  (Income/Expense) are reclassifiable — reuse the kernel's rule, not a copy of it.
+  changed at) that nothing deletes. Setting the same category is a no-op that appends nothing.
+  Cross-book categories die at the database through the same composite-FK pattern as TASK-004.
+- **Reclassification is concurrency-safe.** The category update and the history append happen in
+  **one database transaction with a row lock on the posting** (`lockForUpdate`), so the "previous
+  category" recorded is the one that was actually replaced — two concurrent reclassifications must
+  serialize, never both record the same predecessor. The command is idempotent (`LIF-008`), and a
+  real two-connection concurrency test on PostgreSQL proves the serialization, following the
+  pattern TASK-008 establishes for ACC-006.
+- **Reversed events are not reclassifiable.** Decision: a reversal's postings, and the postings of
+  a transaction that has a complete posted reversal, reject reclassification. Reclassifying one
+  side of a netted pair would un-balance category reports (Rent +10 / Food −10 for an event that
+  economically never happened); a wrong, reversed event is repaired by the correction flow, and
+  the *replacement* is reclassifiable. Reclassifying first and reversing later stays consistent
+  because the reversal mirrors the current category.
+- **Category placement becomes one role-aware policy.** TASK-004 recorded that the kernel's
+  type-based rule lets a `Fees`-role posting (Expense-typed) carry a category. This task
+  introduces the shared, role-aware policy — category allowed only on `IncomeControl` and
+  `ExpenseControl` postings — used by BOTH the kernel and `ReclassifyPostingAction`, closing that
+  residual rather than copying the gap into a second site.
+- **The sanctioned `category_id` mutation is a narrow, designed exception.** The posted-posting
+  immutability mechanism (as hardened by TASK-008, event-independent) must expose exactly one
+  authorized path: a change whose only dirty attribute is `category_id`, performed by the action.
+  Any write that also touches amounts, account, or parent transaction is rejected as before. The
+  classification-history model is protected by the SAME event-independent mechanism — quiet
+  writes and `withoutEvents` must not be able to edit or delete history rows.
 - **Initial classification writes no history.** The history starts at the first reclassification,
   whose "previous" value is the category assigned at posting time (which may be null). Reports read
   the posting's current category; the history exists for audit and point-in-time reconstruction.
@@ -111,20 +153,30 @@ not a reversal and requires a history that is never deleted.
       negated native and functional amounts, link to the original, reason recorded), the combined
       financial effect is zero, and both transactions remain visible to balance derivation
       (`LED-014`) (tests).
-- [ ] Draft and cancelled transactions cannot be reversed; a second reversal of the same original
-      is rejected, including under the concurrent race via the database constraint, on both
-      engines (tests).
+- [ ] Draft and cancelled transactions cannot be reversed. Reversal idempotency distinguishes the
+      three cases: same key + same payload returns the existing reversal; same key + different
+      payload conflicts; different key + already-reversed original is rejected — including under
+      the concurrent race via the database constraint, on both engines (tests).
 - [ ] A reversal is itself immutable and cannot be reversed (tests).
-- [ ] Correction flow: reverse plus replacement share a correction group with the original; the
-      replacement uses its own idempotency key; a failure between the two steps leaves either
-      nothing or a complete reversal, never a half-linked state (tests).
+- [ ] Correction flow is atomic: reversal and replacement post in one database transaction, both
+      linked to the original through `reverses_transaction_id` and
+      `correction_group_id = original id` with no posted row edited; a failure at any point leaves
+      nothing; replaying the correction command returns the existing pair (tests).
 - [ ] Reversing an income that was already spent drives the asset's native balance negative and is
       not blocked by the overdraft default (test).
 - [ ] Reversal postings carry the mirrored posting's category, and category spending nets to zero
       across original plus reversal (test).
 - [ ] Reclassifying a posted posting creates no postings, changes no balance, appends a history
-      row retaining the previous category, and the history rejects update and delete; reclassifying
-      to the same category appends nothing (tests, per ADR-003's validation notes).
+      row retaining the previous category, and the history rejects update and delete through the
+      event-independent mechanism (including `saveQuietly`/`deleteQuietly`/`withoutEvents`);
+      reclassifying to the same category appends nothing (tests, per ADR-003's validation notes).
+- [ ] Two concurrent reclassifications of the same posting serialize: the final category and the
+      history chain agree, proven by a two-connection test on PostgreSQL (test).
+- [ ] Postings of a reversal, or of a transaction with a complete posted reversal, reject
+      reclassification; a `Fees`-role posting rejects a category through the shared role-aware
+      policy in both the kernel and the reclassification action (tests).
+- [ ] The sanctioned mutation path accepts a change whose only dirty attribute is `category_id`
+      and rejects any write that also touches monetary fields, account, or parent (tests).
 - [ ] A category from another book is rejected at the database for both the posting reference and
       the history row (tests, both engines).
 - [ ] `JournalTransactionReversed` dispatches only after commit; a rolled-back reversal dispatches
