@@ -581,3 +581,14 @@ is closed, each confirmed by re-running the original reproduction rather than by
 - **Round 2 follow-ups:** one, non-blocking — the kernel's category rule is account-type-based, so a
   category on a `Fees`-role posting passes the kernel. Worth making role-aware in the slice that adds
   a second system-account posting shape (FX, rounding), recorded here so it is not rediscovered.
+
+### External review addendum (2026-08-08, after merge)
+
+A third, independent external review (different model, adversarial brief, run by the book owner
+after this task reached `done` and was merged) reported five P1 findings and one P2 against the
+merged code: an unguarded Draft→Posted transition, immutability escape via reparenting, quiet
+Eloquent writes (`saveQuietly`/`withoutEvents`) bypassing the guards, a check-then-post race in
+the ACC-006 balance check, non-UTC effective-time corruption breaking idempotent replay, and
+missing payment-account validation in the intent actions. This task remains `done` as delivered
+against its own criteria; the findings are tracked, reproduced, and repaired in
+[TASK-008](008-posting-kernel-hardening.md), which blocks TASK-005.
