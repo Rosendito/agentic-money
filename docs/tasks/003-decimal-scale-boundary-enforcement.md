@@ -376,6 +376,12 @@ This decision is already recorded in [ADR-001](../decisions/ADR-001-decimal-prec
 
 - **Commit:** `05934ee` (fixes for re-validation findings 5-6), plus this document update.
 
+## Ratifications
+
+- `brick/math ^0.18` as a direct `composer.json` dependency: **ratified by the book owner,
+  2026-08-08** (it was already installed transitively at 0.18.0; the lock delta was content-hash
+  only). This closes the third-round validation follow-up 2.
+
 ## Validation
 
 > Filled by the validator.
