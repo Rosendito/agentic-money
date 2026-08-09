@@ -56,6 +56,36 @@ balances, links provider records to journal transactions, and reports difference
 either side (`LIF-021`). This is the slice the future AI agent interface depends on; the agent itself
 calls the same application use cases as any other client and is not a ledger capability.
 
+## Review rigor
+
+Every task declares `rigor: strict` or `rigor: agile` in its frontmatter. The planner sets it when
+the task is planned, using one criterion — **how hard the damage is to repair**:
+
+A task is **strict** when a defect could corrupt or misstate posted financial history, change how
+money is represented or measured, weaken a ledger invariant, alter migrations of ledger-owned
+tables, or otherwise require a data migration or reversal campaign to repair. Rewriting the book's
+history is the failure the project cannot afford; anything that writes toward it gets the full
+treatment. Typical strict territory: the posting kernel and intent actions, reversal and
+correction, money value objects and precision, quotes and valuation, obligations and settlement,
+idempotency, book bootstrap, and ledger-table migrations.
+
+A task is **agile** when a defect is repairable by a later code change without touching recorded
+data. Typical agile territory: HTTP and Inertia delivery, dashboard and read-model presentation,
+CI and developer tooling, reference-data seeders, documentation surfaces.
+
+The two levels change what the validator does with findings:
+
+- **Strict:** the current flow. Findings block; the task iterates executor–validator until `done`.
+- **Agile:** ship first, repair later. One validation pass. Only findings that threaten data
+  integrity, security, or silent data loss block — such a finding also reveals the task was
+  misclassified, so it escalates to strict handling. Every other finding is recorded as a
+  follow-up task document by the validator, and the task moves to `done` with the follow-ups
+  linked. Repair is tracked, not skipped.
+
+When an agile task turns out to touch strict territory mid-execution, the executor stops and
+reports, exactly like any scope conflict. Tasks created before this policy carry no `rigor` field
+and are treated as strict.
+
 ## Roles
 
 - **Planner:** defines the intention, relevant design boundaries, hidden risks, and acceptance

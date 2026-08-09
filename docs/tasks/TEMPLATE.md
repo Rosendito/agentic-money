@@ -2,6 +2,7 @@
 id: TASK-000
 title: Replace with a concise outcome
 status: draft
+rigor: strict # strict = blocking reviews (ledger core); agile = ship first, findings become follow-up tasks
 created_at: YYYY-MM-DD
 ---
 

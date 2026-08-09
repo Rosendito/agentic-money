@@ -2,6 +2,7 @@
 id: TASK-007
 title: Enforce total decimal precision at the application boundary
 status: ready
+rigor: strict
 created_at: 2026-08-08
 ---
 
