@@ -27,6 +27,7 @@ planned; the blocking decisions listed must be resolved first.
 | Schema, models, factories                | —                                   | ADR-001, ADR-002 (resolved)              |
 | CI against a real decimal database       | Schema                              | —                                        |
 | Decimal scale at the app boundary        | CI                                  | ADR-001 amendment (resolved)             |
+| Total precision at the app boundary      | Decimal scale slice                 | —                                        |
 | Categories and the posting engine        | Schema                              | ADR-003 (resolved)                       |
 | Reversal and correction                  | Posting engine                      | —                                        |
 | Quotes and valuation policies            | Schema                              | ADR-005 resolved; Binance aggregation deferred |
