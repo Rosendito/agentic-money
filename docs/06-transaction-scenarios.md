@@ -321,7 +321,17 @@ Expected behavior:
 
 The following cases must be added or explicitly deferred when tasks are created:
 
-- negative asset balance/overdraft;
+- funding and availability (first release rejects, never overdrafts — ADR-004 as amended,
+  `ACC-006`, `ACC-010`):
+  - a P2P funding operation posts outgoing USDT and incoming VES before any VES spending
+    (`SCN-FX-003` shape precedes expenses);
+  - an expense exceeding the available VES balance at its effective time is rejected;
+  - a transfer or exchange exceeding its source asset balance is rejected;
+  - exact exhaustion to zero is accepted;
+  - a backdated expense cannot appear before its funding event, nor make the running balance
+    negative at any later effective-time point;
+  - credit is represented through a liability, never a negative asset;
+  - concurrent commands cannot jointly overspend an asset;
 - credit card purchase and payment;
 - backdated VES acquisition before a later disposal;
 - refund in a different instrument;

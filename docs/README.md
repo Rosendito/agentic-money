@@ -95,6 +95,9 @@ Do not load the complete knowledge base by default when task-specific context is
 - The initial book functional instrument is USDT.
 - The application must preserve native balances and historical USDT book values separately.
 - Posted financial events are immutable and corrected by reversal.
+- Asset accounts never go negative: spending, transfers, and exchanges require sufficient posted
+  native balance at their effective time, and credit or overdraft — when introduced — uses
+  explicit liability semantics (ADR-004 as amended 2026-08-08).
 - The dashboard is primarily a read model; accounting behavior belongs in domain/application
   services, not UI components.
 - Backend capabilities are organized as vertical modules under `app/Domain/`.
@@ -120,7 +123,8 @@ Resolved decisions: precision and rounding
 immutability ([ADR-002](decisions/ADR-002-functional-instrument-immutability.md)), the expense
 classification boundary ([ADR-003](decisions/ADR-003-expense-classification-boundary.md)),
 cost basis with backdated acquisitions
-([ADR-004](decisions/ADR-004-cost-basis-and-backdating.md)), and USD representations as distinct
+([ADR-004](decisions/ADR-004-cost-basis-and-backdating.md), amended 2026-08-08: disposals must be
+fully funded and asset accounts never go negative), and USD representations as distinct
 instruments ([ADR-005](decisions/ADR-005-usd-representations-as-distinct-instruments.md)).
 
 Open decisions are tracked in [the decision records directory](decisions/README.md). Do not infer them from

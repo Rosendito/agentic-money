@@ -4,6 +4,16 @@
 
 Accepted (2026-08-08, product decision by the book owner).
 
+Amended (2026-08-08, product decision by the book owner): disposals must be fully funded. The
+original decision allowed disposals beyond the recorded native balance, negative native asset
+balances, negative cost pools, and average preservation through a negative pool, on the assumption
+that unrecorded acquisitions routinely finance already-posted disposals. That assumption does not
+match the real workflow, which is funded first: funds exist in a savings asset (for example USDT),
+a funding or exchange operation is registered first (for example a Binance P2P sale posting
+outgoing USDT and incoming VES), and expenses are registered afterward against the available
+balance. A negative asset is never a substitute for an unrecorded acquisition, missing funding
+source, credit, or overdraft. The moving weighted-average method itself is unchanged.
+
 ## Context
 
 Disposing of a non-functional monetary balance realizes an FX result: the difference between what the
@@ -30,10 +40,14 @@ average is `total functional cost / total native quantity`.
 The difference between that carrying value and the event's valuation is posted explicitly to the
 realized FX gain or loss system account. The average itself is unchanged by a disposal.
 
-**Negative balances.** A disposal exceeding the recorded native balance is allowed, because unrecorded
-acquisitions are expected in the narrative flow. The excess carries the current average, the pool may
-go negative, and the average is preserved rather than reset. A negative native balance is a
-data-quality signal surfaced to the user, in the spirit of `RPT-024`, not a silent state.
+**Funding (as amended 2026-08-08).** An ordinary disposal requires sufficient posted native balance
+in the account, evaluated at the disposal's effective time. Exact exhaustion is valid and leaves
+both the pool's native quantity and its functional cost at zero. When sufficient funds have not
+been posted, the disposal — expense, transfer, or exchange — must not reach `Posted`; the funding
+or acquisition event is registered first and the dependent disposal afterward. Negative native
+asset balances, negative cost pools, and averages carried through a negative pool are not
+representable states. Credit and overdraft are not part of the first release; if supported later,
+they are expressed through explicit liability/credit semantics, never through a negative asset.
 
 **Cost is fixed at posting time.** The disposal's carrying value is computed when the transaction is
 posted and stored in its postings' functional amounts. Reading history never recomputes cost. The
@@ -44,7 +58,12 @@ normally. The running average is recomputed from its effective time onward. Real
 already posted are never rewritten or reversed. The resulting difference in the account's carrying
 value is posted as an explicit cost-basis adjustment transaction at the correction's recording time,
 between the affected asset account and the realized FX gain or loss account, with zero native
-quantity and a non-zero functional amount as permitted by `LED-005`.
+quantity and a non-zero functional amount as permitted by `LED-005`. The adjustment exists to
+repair the weighted average of already-valid, fully funded disposals whose cost the late
+acquisition changes — never to retroactively justify a balance that was allowed to go negative,
+which is not a representable state. A backdated disposal is subject to the funding rule across the
+whole timeline: it must not make the account's running native balance negative at its own
+effective time or at any later point in the existing effective-time sequence.
 
 **Explicit revaluation** is deferred to a later slice. When introduced, it changes a pool's functional
 cost without changing its native quantity, and therefore changes the average.
@@ -71,17 +90,25 @@ cost without changing its native quantity, and therefore changes the average.
   correction appears as a dated adjustment in a later period. The error is visible rather than hidden.
 - The cost-basis adjustment is a distinct transaction shape that reporting must classify, so that it
   is not read as ordinary spending or income.
-- Negative native balances are reachable by design and require a visible indicator in read models.
+- Negative native asset balances are unrepresentable. Missing funding surfaces as a rejected
+  command at registration time, and gaps against external evidence are explained by the future
+  reconciliation slice (`LIF-021`), not by overdraft.
+- Registration order matters and is intended product behavior: the funding operation is recorded
+  before the spending that depends on it, matching the funded-first workflow.
 - Explicit revaluation and unrealized FX presentation remain unspecified.
 
 ## Affected rules and scenarios
 
 - Resolves the cost-basis pending record and known open decision 1 in `docs/README.md`.
 - Adds `VAL-010` (moving weighted-average cost) and `VAL-011` (backdated acquisitions adjust forward).
-- Reinforces `LED-005`, `LED-011`, `LED-013`, `LIF-003`, `LIF-014`, `MNY-008`, `SCP-011`, `RPT-024`.
+- Reinforces `LED-005`, `LED-011`, `LED-013`, `LIF-003`, `LIF-014`, `MNY-008`, `SCP-011` (the
+  original `RPT-024` citation for surfaced negative balances no longer applies after the
+  amendment).
 - Required by `SCN-EXP-002`, `SCN-FX-001`, `SCN-FX-002`, `SCN-DEBT-002`, `SCN-LOAN-001`.
-- Answers the deferred scenario extensions for negative asset balances and backdated acquisition
-  before a later disposal. Explicit revaluation and unrealized FX presentation remain deferred.
+- Answers the deferred scenario extensions for insufficient-funds rejection (as amended) and
+  backdated acquisition before a later disposal. Explicit revaluation and unrealized FX
+  presentation remain deferred.
+- The amendment strengthens `ACC-006` and rewrites `VAL-010`/`VAL-011` accordingly.
 
 ## Validation notes
 
@@ -89,6 +116,9 @@ cost without changing its native quantity, and therefore changes the average.
   realized FX result matches the weighted average, not the first or last acquisition rate.
 - A feature test must prove that a backdated acquisition posts an explicit adjustment, changes no
   existing posting, and leaves the account's carrying balance correct afterward.
-- A feature test must prove a disposal beyond the recorded balance posts successfully, produces a
-  negative native balance, and preserves the pool average.
+- A feature test must prove a disposal exceeding the available posted balance at its effective
+  time is rejected and writes nothing; a companion test must prove exact exhaustion posts and
+  leaves the pool at zero native quantity and zero functional cost.
+- A feature test must prove a backdated disposal is rejected when it would make the running
+  balance negative at any later point in the effective-time sequence.
 - A test must prove the running average projection can be rebuilt from posted postings alone.

@@ -29,7 +29,8 @@ planned; the blocking decisions listed must be resolved first.
 | Decimal scale at the app boundary        | CI                                  | ADR-001 amendment (resolved)             |
 | Total precision at the app boundary      | Decimal scale slice                 | —                                        |
 | Categories and the posting engine        | Schema                              | ADR-003 (resolved)                       |
-| Reversal and correction                  | Posting engine                      | —                                        |
+| Effective-time availability (`ACC-010`)  | Posting engine, kernel hardening    | ADR-004 amendment (resolved)             |
+| Reversal and correction                  | Posting engine, effective-time availability | —                                 |
 | Quotes and valuation policies            | Schema                              | ADR-005 resolved; Binance aggregation deferred |
 | Cross-instrument exchanges and FX result | Posting engine, quotes              | ADR-004 (resolved)                       |
 | Credit-card purchases and payments       | Posting engine                      | —                                        |

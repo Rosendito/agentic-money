@@ -37,9 +37,22 @@ new account, never a casual edit.
 **ACC-005 — Archive rather than delete.** Accounts with posted history are archived when no longer
 active. Their postings and report history remain available.
 
-**ACC-006 — No accidental negative assets.** The default action policy rejects spending or
-transferring more than an asset account's available native balance. Explicit overdraft, credit, or
-controlled correction workflows may override this only when their semantics are defined.
+**ACC-006 — No negative assets.** Every ordinary action that spends, transfers, or exchanges an
+asset must protect each of its outgoing asset accounts from a negative native balance: when
+sufficient native funds have not been posted, the command must not reach `Posted`. The check and
+the posting are one atomic decision under row-level account locks, so concurrent commands cannot
+jointly overspend an asset (the mechanism TASK-008 established). A negative asset is never a
+substitute for an unrecorded acquisition, missing funding source, credit, or overdraft; credit and
+overdraft are outside the first release and, when introduced, use explicitly defined
+liability/credit semantics (ADR-004 as amended 2026-08-08).
+
+**ACC-010 — Availability is effective-time-aware.** The available balance that `ACC-006` protects
+is derived from postings already posted whose effective time is at or before the new command's
+effective time — an expense must never appear historically before the operation that funded it.
+A backdated disposal must additionally leave the account's running native balance non-negative at
+every later point in the existing effective-time sequence, not only at its own effective time.
+Because availability reads only posted data, the funding event must be registered before any
+disposal that depends on it, regardless of their effective-time order.
 
 **ACC-007 — System accounts are book-owned.** System accounts are created by a controlled book
 initialization service, have stable roles, and cannot be repurposed, deleted, or selected as ordinary

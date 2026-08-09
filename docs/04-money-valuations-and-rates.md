@@ -124,16 +124,21 @@ An acquisition adds its native quantity and functional amount to the pool. A dis
 `native quantity x current average` as carrying value, leaves the average unchanged, and posts the
 difference against the event's valuation to the realized FX gain or loss account. Carrying value is
 computed when the transaction is posted and stored in its functional amounts; the running average is
-a rebuildable projection, never a source of truth (`LED-011`). A disposal beyond the recorded balance
-is allowed, carries the current average, and yields a negative native balance that read models must
-surface (`RPT-024`).
+a rebuildable projection, never a source of truth (`LED-011`). A disposal requires sufficient posted
+native balance at its effective time (`ACC-006`, `ACC-010`): exact exhaustion is valid and leaves
+the pool at zero native quantity and zero functional cost, and a disposal exceeding the available
+balance must not reach `Posted`. Negative native balances and negative cost pools are not
+representable states (ADR-004 as amended 2026-08-08).
 
 **VAL-011 — Backdated acquisitions adjust forward.** A backdated acquisition is posted normally and
 the running average is recomputed from its effective time onward, but realized FX results already
 posted are never rewritten or reversed (`LIF-003`, `MNY-008`). The resulting carrying-value difference
 is posted as an explicit cost-basis adjustment transaction at the correction's recording time,
 between the affected asset account and the realized FX gain or loss account, with zero native
-quantity ([ADR-004](decisions/ADR-004-cost-basis-and-backdating.md)).
+quantity ([ADR-004](decisions/ADR-004-cost-basis-and-backdating.md)). The adjustment repairs the
+weighted average of already-valid, fully funded disposals whose cost the late acquisition changes;
+it never legitimizes a position that was allowed to go negative, because such a position cannot
+exist (`VAL-010`).
 
 Explicit revaluation and unrealized FX presentation remain deferred. When introduced, a revaluation
 changes a pool's functional cost without changing its native quantity.

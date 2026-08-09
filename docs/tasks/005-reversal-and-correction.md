@@ -36,6 +36,12 @@ re-checked by the planner against TASK-008's *executed* result before moving to 
 external plan review (2026-08-08, third model) raised seven findings; the decisions below resolve
 them.
 
+**Second gate (ADR-004 amendment, 2026-08-08):** TASK-008's executed ACC-006 contract locks and
+checks the *current posted total* for the expense action only. The amended policy requires
+effective-time-aware availability across every outgoing asset action (`ACC-010`), which is the
+"Effective-time availability" roadmap slice. This task's committed-state invariant builds on that
+mechanism, so that slice lands first.
+
 ## Required reading
 
 - [Ledger knowledge base](../README.md)
@@ -80,10 +86,16 @@ them.
   Enforce with a partial unique index on `reverses_transaction_id` (where not null), mirroring how
   TASK-004 handled system-account uniqueness; the action treats the constraint violation as the
   already-reversed case.
-- **ACC-006 does not apply to reversals.** Reversing an income after the balance was spent must
-  drive the asset negative — that is the true state, and `VAL-010`/`RPT-024` already require
-  negative balances to be representable and surfaced. Build the exemption into the reversal path
-  deliberately and test it; do not weaken the default for the ordinary intent actions.
+- **Reversals obey the no-negative-assets policy (ADR-004 as amended, `ACC-006`, `ACC-010`).**
+  Reversal is not a bypass around funding rules. The committed-state invariant is: whatever a
+  command commits must leave every protected asset account's running native balance non-negative
+  across the whole effective-time sequence. Concretely: a standalone reversal that would leave an
+  asset negative (for example, reversing an income whose funds were already spent) is **rejected**;
+  the user first records the event that makes the correction fundable — another funding source, or
+  an explicit liability — and then reverses. An atomic correction may pass through intermediate
+  states inside its single database transaction, but its final committed result must satisfy the
+  invariant. Use the same lock-and-check mechanism TASK-008 established, applied to every asset
+  account the reversal credits value out of.
 - **Categories mirror.** Each reversal posting carries the same category as the posting it mirrors,
   so category spending reports show gross and reversal and net to zero, consistent with
   `SCN-REF-001`'s reporting expectation. The kernel's category-placement rule already permits this
@@ -162,8 +174,12 @@ them.
       linked to the original through `reverses_transaction_id` and
       `correction_group_id = original id` with no posted row edited; a failure at any point leaves
       nothing; replaying the correction command returns the existing pair (tests).
-- [ ] Reversing an income that was already spent drives the asset's native balance negative and is
-      not blocked by the overdraft default (test).
+- [ ] A standalone reversal that would leave an asset's running native balance negative at any
+      effective-time point is rejected and writes nothing; the same reversal succeeds after an
+      explicit funding or liability event covers the shortfall (tests).
+- [ ] An atomic correction whose final committed state satisfies the non-negativity invariant
+      posts even if an intermediate step inside the transaction dips below zero; one whose final
+      state violates it rolls back entirely (tests).
 - [ ] Reversal postings carry the mirrored posting's category, and category spending nets to zero
       across original plus reversal (test).
 - [ ] Reclassifying a posted posting creates no postings, changes no balance, appends a history
